@@ -45,7 +45,7 @@ export function useTranslationAPI() {
     const newTerms: ProperNoun = {}
     const lines = properNounText.split('\n')
 
-    lines.forEach(line => {
+    lines.forEach((line: string) => {
       const match = line.match(/^(.*?)\s*:\s*(.*)$/)
       if (match) {
         const original = match[1].trim()
@@ -141,9 +141,9 @@ export function useTranslationAPI() {
         }
 
         // 解析翻译结果
-        const translationLines = translationPart.split('\n').filter(line => line.trim())
+        const translationLines = translationPart.split('\n').filter((line: string) => line.trim())
         needTranslation.forEach((sentence, i) => {
-          const line = translationLines.find(l => l.startsWith(`[${i + 1}]`))
+          const line = translationLines.find((l: string) => l.startsWith(`[${i + 1}]`))
           if (line) {
             const translation = line.replace(/^\[\d+\]\s*/, '').trim()
             store.targetSentences[sentence.originalIndex].text = translation
