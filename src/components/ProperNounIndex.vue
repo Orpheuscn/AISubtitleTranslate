@@ -55,7 +55,7 @@
               v-model="row.translation"
               size="small"
               @blur="updateTerm(row.original, row.translation)"
-              @keyup.enter="updateTerm(row.original, row.translation)"
+              @keyup.enter="(event) => event.target.blur()"
             />
           </template>
         </el-table-column>
@@ -94,7 +94,13 @@ const sortedTerms = computed(() => {
     .sort((a, b) => a.original.localeCompare(b.original))
 })
 
+// 防止重复更新的标志
+let isUpdating = false
+
 function updateTerm(original: string, newTranslation: string) {
+  // 防止重复触发
+  if (isUpdating) return
+  
   const oldTranslation = store.properNouns[original]
   
   if (newTranslation.trim() && newTranslation !== oldTranslation) {
@@ -102,6 +108,7 @@ function updateTerm(original: string, newTranslation: string) {
     
     // 如果是修改现有术语，询问是否在译文中全局替换
     if (oldTranslation) {
+      isUpdating = true
       ElMessageBox.confirm(
         `是否在所有译文中将 "${oldTranslation}" 替换为 "${newTrans}"？`,
         '全局替换术语',
@@ -112,9 +119,9 @@ function updateTerm(original: string, newTranslation: string) {
           distinguishCancelAndClose: true
         }
       ).then(() => {
-        // 用户选择替换
-        store.updateProperNoun(original, newTrans, true)
+        // 用户选择替换 - 先执行替换，再更新索引
         const count = store.replaceTermInAllTranslations(oldTranslation, newTrans)
+        store.updateProperNoun(original, newTrans, false)
         ElMessage.success(`术语已更新，在 ${count} 条译文中进行了替换`)
       }).catch((action) => {
         if (action === 'cancel') {
@@ -123,6 +130,9 @@ function updateTerm(original: string, newTranslation: string) {
           ElMessage.success(`术语 "${original}" 的译文已更新`)
         }
         // close 时不做任何操作
+      }).finally(() => {
+        // 无论如何都要重置标志
+        isUpdating = false
       })
     } else {
       // 新增术语，直接更新
