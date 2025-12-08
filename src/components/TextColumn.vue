@@ -5,18 +5,24 @@
         <span>{{ title }}</span>
         <div class="header-buttons">
           <template v-if="isSource">
-            <el-button
-              size="default"
-              :icon="DocumentCopy"
-              @click="$emit('paste')"
+            <el-upload
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".srt"
+              :on-change="handleFileSelect"
             >
-              粘贴
-            </el-button>
+              <el-button
+                size="default"
+                :icon="Upload"
+              >
+                选择SRT文件
+              </el-button>
+            </el-upload>
             <el-button
               size="default"
               type="primary"
               :icon="Promotion"
-              :disabled="sentences.length === 0 || !hasApiKey"
+              :disabled="subtitles.length === 0 || !hasApiKey"
               @click="$emit('translate')"
             >
               翻译
@@ -25,54 +31,57 @@
           <el-button
             v-else
             size="default"
-            :icon="CopyDocument"
-            :disabled="sentences.length === 0"
-            @click="$emit('copy')"
+            :icon="Download"
+            :disabled="subtitles.length === 0"
+            @click="$emit('download')"
           >
-            复制
+            保存SRT
           </el-button>
         </div>
       </div>
     </template>
 
-    <div class="text-content" ref="contentRef">
-      <div v-if="sentences.length === 0" class="empty-prompt">
-        {{ isSource ? '点击"粘贴"按钮或直接在此处输入您的文本...' : '翻译将显示在这里...' }}
+    <div 
+      class="text-content" 
+      ref="contentRef"
+      :class="{ 'drag-over': isDragging }"
+      @drop.prevent="handleDrop"
+      @dragover.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+    >
+      <div v-if="subtitles.length === 0" class="empty-prompt">
+        {{ isSource ? '拖入SRT文件或点击"选择SRT文件"按钮...' : '翻译将显示在这里...' }}
       </div>
       
-      <div v-else class="sentences-container">
-        <div
-          v-for="(sentence, index) in groupedSentences"
-          :key="index"
-          class="paragraph"
-          :class="{ 'poetry-mode': sentence.isPoetry }"
-        >
-          <SentenceItem
-            v-for="s in sentence.sentences"
-            :key="s.originalIndex"
-            :sentence="s"
-            :is-source="isSource"
-            :is-highlighted="s.originalIndex === highlightedIndex"
-            :is-permanent-highlighted="s.originalIndex === permanentHighlightIndex"
-            @highlight="(permanent) => $emit('highlight', s.originalIndex, permanent)"
-            @retranslate="() => $emit('retranslate', s.originalIndex)"
-            @edit="(newText) => $emit('edit', s.originalIndex, newText)"
-          />
-        </div>
+      <div v-else class="subtitles-container">
+        <SubtitleItem
+          v-for="entry in subtitles"
+          :key="entry.index"
+          :entry="entry"
+          :is-source="isSource"
+          :is-highlighted="entry.index === highlightedIndex"
+          :is-permanent-highlighted="entry.index === permanentHighlightIndex"
+          @highlight="(permanent) => $emit('highlight', entry.index, permanent)"
+          @clear-highlight="$emit('clearHighlight')"
+          @retranslate="() => $emit('retranslate', entry.index)"
+          @edit="(newText) => $emit('edit', entry.index, newText)"
+        />
       </div>
     </div>
   </el-card>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { DocumentCopy, CopyDocument, Promotion } from '@element-plus/icons-vue'
-import type { Sentence } from '@/types'
-import SentenceItem from './SentenceItem.vue'
+import { ref } from 'vue'
+import { Upload, Download, Promotion } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import type { SubtitleEntry } from '@/types'
+import type { UploadFile } from 'element-plus'
+import SubtitleItem from './SubtitleItem.vue'
 
 interface Props {
   title: string
-  sentences: Sentence[]
+  subtitles: SubtitleEntry[]
   highlightedIndex?: number
   permanentHighlightIndex?: number
   isSource?: boolean
@@ -86,37 +95,45 @@ const props = withDefaults(defineProps<Props>(), {
   hasApiKey: false
 })
 
-defineEmits<{
-  paste: []
-  copy: []
+const emit = defineEmits<{
+  fileSelected: [file: File]
   translate: []
+  download: []
   highlight: [index: number, permanent?: boolean]
+  clearHighlight: []
   retranslate: [index: number]
   edit: [index: number, newText: string]
 }>()
 
 const contentRef = ref<HTMLElement>()
+const isDragging = ref(false)
 
-// 将句子按段落分组
-const groupedSentences = computed(() => {
-  const paragraphs: { [key: number]: Sentence[] } = {}
-  
-  props.sentences.forEach(sentence => {
-    const paraIndex = sentence.paragraph || 0
-    if (!paragraphs[paraIndex]) {
-      paragraphs[paraIndex] = []
+function handleFileSelect(file: UploadFile) {
+  if (file.raw) {
+    if (!file.name.endsWith('.srt')) {
+      ElMessage.error('请选择SRT格式的字幕文件')
+      return
     }
-    paragraphs[paraIndex].push(sentence)
-  })
+    emit('fileSelected', file.raw)
+  }
+}
 
-  return Object.keys(paragraphs)
-    .sort((a, b) => parseInt(a) - parseInt(b))
-    .map(paraKey => ({
-      paragraph: parseInt(paraKey),
-      sentences: paragraphs[parseInt(paraKey)].sort((a, b) => a.originalIndex - b.originalIndex),
-      isPoetry: paragraphs[parseInt(paraKey)].some(s => s.type === 'poetry_line')
-    }))
-})
+function handleDrop(event: DragEvent) {
+  isDragging.value = false
+  
+  if (!props.isSource) return
+  
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+  
+  const file = files[0]
+  if (!file.name.endsWith('.srt')) {
+    ElMessage.error('请拖入SRT格式的字幕文件')
+    return
+  }
+  
+  emit('fileSelected', file)
+}
 </script>
 
 <style scoped>
@@ -158,36 +175,24 @@ html.dark .column-header {
   margin-top: 12px;
 }
 
+.text-content.drag-over {
+  background-color: #ecf5ff;
+  border: 2px dashed #409eff;
+}
+
 .empty-prompt {
   color: #909399;
   font-style: italic;
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
   background: #f8f9fa;
   border: 2px dashed #dcdfe6;
   border-radius: 6px;
-}
-
-.sentences-container {
   font-size: 14px;
-  line-height: 1.6;
 }
 
-.paragraph {
-  margin-bottom: 16px;
-}
-
-.paragraph:last-child {
-  margin-bottom: 0;
-}
-
-.poetry-mode {
-  line-height: 1.8;
-}
-
-.poetry-mode :deep(.sentence-item) {
-  display: block;
-  margin-bottom: 4px;
+.subtitles-container {
+  font-size: 14px;
 }
 
 /* 滚动条样式 */
@@ -222,6 +227,11 @@ html.dark .text-column :deep(.el-card__header) {
 
 html.dark .text-content {
   background: #1e1e1e;
+}
+
+html.dark .text-content.drag-over {
+  background-color: #1a3a52;
+  border-color: #409eff;
 }
 
 html.dark .empty-prompt {

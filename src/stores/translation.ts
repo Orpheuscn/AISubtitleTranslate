@@ -1,16 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Sentence, ProperNoun, TranslationSettings, TranslationState } from '@/types'
+import type { SubtitleEntry, ProperNoun, TranslationSettings, TranslationState } from '@/types'
 
 export const useTranslationStore = defineStore('translation', () => {
   // 状态
-  const sourceSentences = ref<Sentence[]>([])
-  const targetSentences = ref<Sentence[]>([])
+  const subtitleEntries = ref<SubtitleEntry[]>([])
+  const originalFileName = ref<string>('')
   const properNouns = ref<ProperNoun>({})
   const settings = ref<TranslationSettings>({
     apiKey: localStorage.getItem('deepseek_api_key') || '',
     model: 'deepseek-chat',
-    batchSize: 10
+    batchSize: 30
   })
   
   const translationState = ref<TranslationState>({
@@ -24,24 +24,30 @@ export const useTranslationStore = defineStore('translation', () => {
   const permanentHighlightIndex = ref(-1)
 
   // 计算属性
-  const hasSourceText = computed(() => sourceSentences.value.length > 0)
-  const hasTranslation = computed(() => targetSentences.value.length > 0)
+  const hasSubtitles = computed(() => subtitleEntries.value.length > 0)
+  const hasTranslation = computed(() => 
+    subtitleEntries.value.some(entry => entry.translatedText && !entry.isMissing)
+  )
   const missingTranslationsCount = computed(() => 
-    targetSentences.value.filter(s => s.isMissing).length
+    subtitleEntries.value.filter(s => s.isMissing).length
   )
   const isTranslationComplete = computed(() => 
     hasTranslation.value && missingTranslationsCount.value === 0
   )
 
   // 方法
-  function setSourceSentences(sentences: Sentence[]) {
-    sourceSentences.value = sentences
-    targetSentences.value = []
+  function setSubtitleEntries(entries: SubtitleEntry[], filename: string = '') {
+    subtitleEntries.value = entries
+    originalFileName.value = filename
     permanentHighlightIndex.value = -1
   }
 
-  function setTargetSentences(sentences: Sentence[]) {
-    targetSentences.value = sentences
+  function updateSubtitleTranslation(index: number, translatedText: string) {
+    const entry = subtitleEntries.value.find(e => e.index === index)
+    if (entry) {
+      entry.translatedText = translatedText
+      entry.isMissing = false
+    }
   }
 
   function updateSettings(newSettings: Partial<TranslationSettings>) {
@@ -106,11 +112,7 @@ export const useTranslationStore = defineStore('translation', () => {
   }
 
   function retryMissingTranslations() {
-    const missingIndices = targetSentences.value
-      .map((sentence, index) => sentence.isMissing ? index : -1)
-      .filter(index => index !== -1)
-    
-    return missingIndices.map(index => sourceSentences.value[index]).filter(Boolean)
+    return subtitleEntries.value.filter(entry => entry.isMissing)
   }
 
   // 初始化
@@ -118,8 +120,8 @@ export const useTranslationStore = defineStore('translation', () => {
 
   return {
     // 状态
-    sourceSentences,
-    targetSentences,
+    subtitleEntries,
+    originalFileName,
     properNouns,
     settings,
     translationState,
@@ -127,14 +129,14 @@ export const useTranslationStore = defineStore('translation', () => {
     permanentHighlightIndex,
     
     // 计算属性
-    hasSourceText,
+    hasSubtitles,
     hasTranslation,
     missingTranslationsCount,
     isTranslationComplete,
     
     // 方法
-    setSourceSentences,
-    setTargetSentences,
+    setSubtitleEntries,
+    updateSubtitleTranslation,
     updateSettings,
     updateTranslationState,
     updateProgress,

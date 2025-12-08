@@ -8,14 +8,22 @@
     <!-- API设置 -->
     <ApiSettings />
 
-    <!-- 错误提示 -->
-    <el-alert
-      v-if="errorMessage"
-      :title="errorMessage"
-      type="error"
-      :closable="false"
-      class="error-alert"
-    />
+    <!-- 翻译进度 -->
+    <el-card v-if="store.translationState.isTranslating" class="progress-card">
+      <el-progress 
+        :percentage="store.translationState.progress.percentage" 
+        :status="store.translationState.shouldStop ? 'exception' : undefined"
+      />
+      <div class="progress-message">{{ store.translationState.currentMessage }}</div>
+      <el-button 
+        type="danger" 
+        size="small" 
+        @click="handleStopTranslation"
+        style="margin-top: 12px"
+      >
+        停止翻译
+      </el-button>
+    </el-card>
 
     <!-- 专有名词索引 -->
     <ProperNounIndex />
@@ -24,24 +32,26 @@
     <div class="text-container">
       <div class="text-columns">
         <TextColumn
-          title="源语言文本"
-          :sentences="store.sourceSentences"
+          title="原始字幕"
+          :subtitles="store.subtitleEntries"
           :highlighted-index="store.highlightedIndex"
           :permanent-highlight-index="store.permanentHighlightIndex"
           :has-api-key="!!store.settings.apiKey"
           is-source
-          @paste="handlePaste"
+          @file-selected="handleFileSelected"
           @translate="handleTranslate"
           @highlight="handleHighlight"
+          @clear-highlight="handleClearHighlight"
         />
         
         <TextColumn
           title="中文译文"
-          :sentences="store.targetSentences"
+          :subtitles="store.subtitleEntries"
           :highlighted-index="store.highlightedIndex"
           :permanent-highlight-index="store.permanentHighlightIndex"
-          @copy="handleCopy"
+          @download="handleDownload"
           @highlight="handleHighlight"
+          @clear-highlight="handleClearHighlight"
           @retranslate="handleRetranslate"
           @edit="handleEdit"
         />
@@ -54,60 +64,71 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTranslationStore } from '@/stores/translation'
-import { useTextProcessing } from '@/composables/useTextProcessing'
-import { useTranslationAPI } from '@/composables/useTranslationAPI'
+import { useSrtProcessing } from '@/composables/useSrtProcessing'
+import { useSubtitleTranslation } from '@/composables/useSubtitleTranslation'
 import ApiSettings from '@/components/ApiSettings.vue'
 import ProperNounIndex from '@/components/ProperNounIndex.vue'
 import TextColumn from '@/components/TextColumn.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const store = useTranslationStore()
-const { splitSentencesWithNLP, getCleanTranslationText } = useTextProcessing()
-const { translateBatch, retranslateSentence } = useTranslationAPI()
+const { parseSrt, generateSrt, downloadSrt } = useSrtProcessing()
+const { translateSubtitleBatch, retranslateSingleSubtitle } = useSubtitleTranslation()
 
-const errorMessage = ref('')
-
-// 处理粘贴文本
-async function handlePaste() {
+// 处理文件选择
+async function handleFileSelected(file: File) {
   try {
-    const text = await navigator.clipboard.readText()
-    if (!text.trim()) {
-      ElMessage.warning('剪贴板为空')
+    const text = await file.text()
+    const entries = parseSrt(text)
+    
+    if (entries.length === 0) {
+      ElMessage.error('无法解析SRT文件，请检查文件格式')
       return
     }
-
-    const sentences = splitSentencesWithNLP(text)
-    store.setSourceSentences(sentences)
     
-    errorMessage.value = ''
-    ElMessage.success('文本已粘贴')
+    store.setSubtitleEntries(entries, file.name)
+    ElMessage.success(`已加载 ${entries.length} 条字幕`)
   } catch (error) {
-    console.error('粘贴失败:', error)
-    ElMessage.error('无法访问剪贴板，请手动粘贴文本')
+    console.error('文件读取失败:', error)
+    ElMessage.error('文件读取失败')
   }
 }
 
-// 处理复制译文
-function handleCopy() {
-  const text = getCleanTranslationText(store.targetSentences)
-  if (!text) {
-    ElMessage.warning('没有可复制的译文')
+// 处理下载
+function handleDownload() {
+  if (store.subtitleEntries.length === 0) {
+    ElMessage.warning('没有可保存的字幕')
     return
   }
 
-  navigator.clipboard.writeText(text)
-    .then(() => {
-      ElMessage.success('译文已复制到剪贴板')
-    })
-    .catch((error) => {
-      console.error('复制失败:', error)
-      ElMessage.error('复制失败')
-    })
+  const hasTranslation = store.subtitleEntries.some(e => e.translatedText && !e.isMissing)
+  if (!hasTranslation) {
+    ElMessage.warning('请先翻译字幕')
+    return
+  }
+
+  try {
+    const srtContent = generateSrt(store.subtitleEntries, true)
+    const filename = store.originalFileName 
+      ? store.originalFileName.replace('.srt', '_translated.srt')
+      : 'translated.srt'
+    
+    downloadSrt(srtContent, filename)
+    ElMessage.success('SRT文件已保存')
+  } catch (error) {
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败')
+  }
 }
 
 // 处理高亮
 function handleHighlight(index: number, permanent = false) {
   store.setHighlight(index, permanent)
+}
+
+// 处理清除高亮
+function handleClearHighlight() {
+  store.clearHighlight()
 }
 
 // 处理重译
@@ -117,8 +138,21 @@ async function handleRetranslate(index: number) {
     return
   }
 
+  const entry = store.subtitleEntries.find(e => e.index === index)
+  if (!entry) {
+    ElMessage.error('找不到字幕条目')
+    return
+  }
+
   try {
-    await retranslateSentence(index, store.settings.apiKey, store.settings.model)
+    // 获取上下文
+    const entryArrayIndex = store.subtitleEntries.findIndex(e => e.index === index)
+    const context = {
+      previous: entryArrayIndex > 0 ? store.subtitleEntries[entryArrayIndex - 1] : undefined,
+      next: entryArrayIndex < store.subtitleEntries.length - 1 ? store.subtitleEntries[entryArrayIndex + 1] : undefined
+    }
+
+    await retranslateSingleSubtitle(entry, store.settings.apiKey, store.settings.model, context)
     ElMessage.success('重译完成')
   } catch (error: any) {
     console.error('重译失败:', error)
@@ -128,11 +162,8 @@ async function handleRetranslate(index: number) {
 
 // 处理编辑
 function handleEdit(index: number, newText: string) {
-  if (store.targetSentences[index]) {
-    store.targetSentences[index].text = newText
-    store.targetSentences[index].isMissing = false
-    ElMessage.success('编辑已保存')
-  }
+  store.updateSubtitleTranslation(index, newText)
+  ElMessage.success('编辑已保存')
 }
 
 // 处理翻译
@@ -142,14 +173,14 @@ async function handleTranslate() {
     return
   }
 
-  if (!store.hasSourceText) {
-    ElMessage.error('请先输入或粘贴源文本')
+  if (!store.hasSubtitles) {
+    ElMessage.error('请先加载SRT文件')
     return
   }
 
   try {
-    await translateBatch(
-      store.sourceSentences,
+    await translateSubtitleBatch(
+      store.subtitleEntries,
       store.settings.apiKey,
       store.settings.model,
       store.settings.batchSize
@@ -158,12 +189,18 @@ async function handleTranslate() {
     if (store.missingTranslationsCount === 0) {
       ElMessage.success('翻译完成！')
     } else {
-      ElMessage.warning(`翻译完成，但有 ${store.missingTranslationsCount} 个句子缺失或出错`)
+      ElMessage.warning(`翻译完成，但有 ${store.missingTranslationsCount} 条字幕缺失或出错`)
     }
   } catch (error: any) {
     console.error('翻译失败:', error)
     ElMessage.error(`翻译失败: ${error.message}`)
   }
+}
+
+// 停止翻译
+function handleStopTranslation() {
+  store.updateTranslationState({ shouldStop: true })
+  ElMessage.info('正在停止翻译...')
 }
 </script>
 
@@ -180,8 +217,15 @@ async function handleTranslate() {
   margin-bottom: 16px;
 }
 
-.error-alert {
+.progress-card {
   margin-bottom: 16px;
+}
+
+.progress-message {
+  margin-top: 12px;
+  color: #606266;
+  font-size: 14px;
+  text-align: center;
 }
 
 .text-container {
