@@ -84,11 +84,14 @@ function highlightTerms(text: string, isSourceText: boolean): string {
   // 按长度降序排序，避免短词匹配覆盖长词
   const sortedTerms = terms.sort((a, b) => b.length - a.length)
   
+  // 为原文和译文使用不同的class
+  const highlightClass = isSourceText ? 'term-highlight-source' : 'term-highlight-translation'
+  
   sortedTerms.forEach(term => {
     if (term) {
       // 使用正则进行全局匹配，避免重复替换已高亮的内容
-      const regex = new RegExp(`(?<!<mark class="term-highlight">)(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?!</mark>)`, 'g')
-      result = result.replace(regex, '<mark class="term-highlight">$1</mark>')
+      const regex = new RegExp(`(?<!<mark class="${highlightClass}">)(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?!</mark>)`, 'g')
+      result = result.replace(regex, `<mark class="${highlightClass}">$1</mark>`)
     }
   })
   
@@ -239,7 +242,18 @@ function handleRetranslate() {
   font-family: inherit;
 }
 
-:deep(.term-highlight) {
+/* 左侧原文的术语高亮 - 可见文字 */
+:deep(.term-highlight-source) {
+  background-color: rgba(255, 215, 0, 0.3);
+  color: inherit;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: 500;
+  border-bottom: 2px solid rgba(255, 215, 0, 0.8);
+}
+
+/* 右侧译文的术语高亮 - 叠加层效果 */
+:deep(.term-highlight-translation) {
   background-color: rgba(255, 215, 0, 0.4);
   color: transparent;
   padding: 2px 0;
@@ -277,7 +291,12 @@ html.dark .subtitle-text {
   color: #e5e5e5;
 }
 
-html.dark :deep(.term-highlight) {
+html.dark :deep(.term-highlight-source) {
+  background-color: rgba(204, 153, 0, 0.3);
+  border-bottom-color: rgba(204, 153, 0, 0.8);
+}
+
+html.dark :deep(.term-highlight-translation) {
   background-color: rgba(204, 153, 0, 0.4);
   box-shadow: 0 0 0 2px rgba(204, 153, 0, 0.6);
 }
