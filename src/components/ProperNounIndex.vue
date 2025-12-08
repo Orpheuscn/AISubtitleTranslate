@@ -4,6 +4,21 @@
       <div class="index-header">
         <h3>专有名词索引</h3>
         <div class="header-actions">
+          <el-upload
+            :auto-upload="false"
+            :show-file-list="false"
+            accept=".json"
+            :on-change="handleImport"
+          >
+            <el-button
+              size="small"
+              type="primary"
+              :icon="Upload"
+              plain
+            >
+              导入
+            </el-button>
+          </el-upload>
           <el-button
             size="small"
             type="success"
@@ -81,7 +96,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { ArrowUp, ArrowDown, Delete, Download } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, Delete, Download, Upload } from '@element-plus/icons-vue'
+import type { UploadFile } from 'element-plus'
 import { useTranslationStore } from '@/stores/translation'
 
 const visible = ref(true)
@@ -157,6 +173,48 @@ function removeTerm(original: string) {
   }).catch(() => {
     // 用户取消
   })
+}
+
+// 导入术语索引
+async function handleImport(file: UploadFile) {
+  if (!file.raw) return
+  
+  try {
+    const text = await file.raw.text()
+    const importedTerms = JSON.parse(text)
+    
+    // 验证格式
+    if (typeof importedTerms !== 'object' || importedTerms === null) {
+      ElMessage.error('无效的JSON格式')
+      return
+    }
+    
+    // 统计导入的术语
+    let addedCount = 0
+    let skippedCount = 0
+    
+    Object.entries(importedTerms).forEach(([original, translation]) => {
+      if (typeof original === 'string' && typeof translation === 'string') {
+        if (store.properNouns[original]) {
+          skippedCount++  // 已存在，跳过
+        } else {
+          store.updateProperNoun(original, translation, false)
+          addedCount++
+        }
+      }
+    })
+    
+    if (addedCount > 0) {
+      ElMessage.success(`成功导入 ${addedCount} 个术语${skippedCount > 0 ? `，跳过 ${skippedCount} 个重复术语` : ''}`)
+    } else if (skippedCount > 0) {
+      ElMessage.warning(`所有术语已存在，未导入新术语`)
+    } else {
+      ElMessage.warning('未找到有效的术语')
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    ElMessage.error('导入失败，请检查文件格式')
+  }
 }
 
 function handleDownload() {
