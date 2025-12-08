@@ -96,14 +96,32 @@ export const useTranslationStore = defineStore('translation', () => {
     }
   }
 
-  function updateProperNoun(original: string, translation: string) {
+  function updateProperNoun(original: string, translation: string, replaceInTranslations: boolean = true) {
+    const oldTranslation = properNouns.value[original]
     properNouns.value[original] = translation
     saveProperNouns()
+    
+    // 如果是修改现有术语，在所有译文中进行全局替换
+    if (replaceInTranslations && oldTranslation && oldTranslation !== translation) {
+      replaceTermInAllTranslations(oldTranslation, translation)
+    }
   }
 
   function removeProperNoun(original: string) {
     delete properNouns.value[original]
     saveProperNouns()
+  }
+
+  // 在所有译文中全局替换术语
+  function replaceTermInAllTranslations(oldTerm: string, newTerm: string) {
+    let replacedCount = 0
+    subtitleEntries.value.forEach(entry => {
+      if (entry.translatedText && entry.translatedText.includes(oldTerm)) {
+        entry.translatedText = entry.translatedText.replaceAll(oldTerm, newTerm)
+        replacedCount++
+      }
+    })
+    return replacedCount
   }
 
   function clearProperNouns() {
@@ -147,6 +165,7 @@ export const useTranslationStore = defineStore('translation', () => {
     updateProperNoun,
     removeProperNoun,
     clearProperNouns,
-    retryMissingTranslations
+    retryMissingTranslations,
+    replaceTermInAllTranslations
   }
 })

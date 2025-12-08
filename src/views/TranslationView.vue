@@ -49,6 +49,7 @@
           :subtitles="store.subtitleEntries"
           :highlighted-index="store.highlightedIndex"
           :permanent-highlight-index="store.permanentHighlightIndex"
+          @file-selected="handleTranslationFileSelected"
           @download="handleDownload"
           @highlight="handleHighlight"
           @clear-highlight="handleClearHighlight"
@@ -75,7 +76,7 @@ const store = useTranslationStore()
 const { parseSrt, generateSrt, downloadSrt } = useSrtProcessing()
 const { translateSubtitleBatch, retranslateSingleSubtitle } = useSubtitleTranslation()
 
-// 处理文件选择
+// 处理原文文件选择
 async function handleFileSelected(file: File) {
   try {
     const text = await file.text()
@@ -87,7 +88,45 @@ async function handleFileSelected(file: File) {
     }
     
     store.setSubtitleEntries(entries, file.name)
-    ElMessage.success(`已加载 ${entries.length} 条字幕`)
+    ElMessage.success(`已加载 ${entries.length} 条原文字幕`)
+  } catch (error) {
+    console.error('文件读取失败:', error)
+    ElMessage.error('文件读取失败')
+  }
+}
+
+// 处理译文文件选择
+async function handleTranslationFileSelected(file: File) {
+  try {
+    if (store.subtitleEntries.length === 0) {
+      ElMessage.warning('请先加载原文字幕')
+      return
+    }
+
+    const text = await file.text()
+    const translationEntries = parseSrt(text)
+    
+    if (translationEntries.length === 0) {
+      ElMessage.error('无法解析SRT文件，请检查文件格式')
+      return
+    }
+
+    // 将译文填充到对应序号的字幕中
+    let matchedCount = 0
+    translationEntries.forEach(transEntry => {
+      const entry = store.subtitleEntries.find(e => e.index === transEntry.index)
+      if (entry) {
+        entry.translatedText = transEntry.text
+        entry.isMissing = false
+        matchedCount++
+      }
+    })
+
+    if (matchedCount === 0) {
+      ElMessage.warning('未找到匹配的字幕序号，请确认译文SRT与原文SRT对应')
+    } else {
+      ElMessage.success(`已导入 ${matchedCount} 条译文，可以开始校对`)
+    }
   } catch (error) {
     console.error('文件读取失败:', error)
     ElMessage.error('文件读取失败')

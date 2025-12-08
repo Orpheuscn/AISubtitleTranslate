@@ -26,22 +26,25 @@
       </div>
     </div>
     <div class="subtitle-content">
-      <div v-if="isSource" class="subtitle-text">{{ entry.text }}</div>
-      <el-input
-        v-else
-        v-model="editText"
-        type="textarea"
-        :autosize="{ minRows: 2, maxRows: 6 }"
-        @blur="saveEdit"
-        @keydown.enter.ctrl="saveEdit"
-        placeholder="等待翻译..."
-      />
+      <div v-if="isSource" class="subtitle-text" v-html="highlightedText"></div>
+      <div v-else class="translation-wrapper">
+        <el-input
+          v-model="editText"
+          type="textarea"
+          :autosize="{ minRows: 2, maxRows: 6 }"
+          @blur="saveEdit"
+          @keydown.enter.ctrl="saveEdit"
+          placeholder="等待翻译..."
+        />
+        <div v-if="editText" class="term-highlight-overlay" v-html="highlightedTranslation"></div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
+import { useTranslationStore } from '@/stores/translation'
 import type { SubtitleEntry } from '@/types'
 
 interface Props {
@@ -64,8 +67,43 @@ const emit = defineEmits<{
   edit: [newText: string]
 }>()
 
+const store = useTranslationStore()
 const itemRef = ref<HTMLElement>()
 const editText = ref(props.entry.translatedText || '')
+const isFocused = ref(false)
+
+// 高亮显示术语的函数
+function highlightTerms(text: string, isSourceText: boolean): string {
+  if (!text) return ''
+  
+  let result = text
+  const terms = isSourceText 
+    ? Object.keys(store.properNouns)  // 原文中高亮原文术语
+    : Object.values(store.properNouns) // 译文中高亮译文术语
+  
+  // 按长度降序排序，避免短词匹配覆盖长词
+  const sortedTerms = terms.sort((a, b) => b.length - a.length)
+  
+  sortedTerms.forEach(term => {
+    if (term) {
+      // 使用正则进行全局匹配，避免重复替换已高亮的内容
+      const regex = new RegExp(`(?<!<mark class="term-highlight">)(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?!</mark>)`, 'g')
+      result = result.replace(regex, '<mark class="term-highlight">$1</mark>')
+    }
+  })
+  
+  return result
+}
+
+// 高亮原文文本
+const highlightedText = computed(() => {
+  return highlightTerms(props.entry.text, true)
+})
+
+// 高亮译文文本
+const highlightedTranslation = computed(() => {
+  return highlightTerms(editText.value, false)
+})
 
 // 监听翻译结果变化，自动更新编辑框内容
 watch(() => props.entry.translatedText, (newValue) => {
@@ -182,6 +220,33 @@ function handleRetranslate() {
   word-break: break-word;
 }
 
+.translation-wrapper {
+  position: relative;
+}
+
+.term-highlight-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  color: transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 5px 11px;
+  line-height: 1.5;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+:deep(.term-highlight) {
+  background-color: rgba(255, 215, 0, 0.4);
+  color: transparent;
+  padding: 2px 0;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.6);
+}
+
 
 /* 暗色模式 */
 html.dark .subtitle-item {
@@ -210,6 +275,11 @@ html.dark .subtitle-item.is-missing {
 
 html.dark .subtitle-text {
   color: #e5e5e5;
+}
+
+html.dark :deep(.term-highlight) {
+  background-color: rgba(204, 153, 0, 0.4);
+  box-shadow: 0 0 0 2px rgba(204, 153, 0, 0.6);
 }
 </style>
 

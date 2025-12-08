@@ -95,9 +95,40 @@ const sortedTerms = computed(() => {
 })
 
 function updateTerm(original: string, newTranslation: string) {
-  if (newTranslation.trim() && newTranslation !== store.properNouns[original]) {
-    store.updateProperNoun(original, newTranslation.trim())
-    ElMessage.success(`术语 "${original}" 的译文已更新`)
+  const oldTranslation = store.properNouns[original]
+  
+  if (newTranslation.trim() && newTranslation !== oldTranslation) {
+    const newTrans = newTranslation.trim()
+    
+    // 如果是修改现有术语，询问是否在译文中全局替换
+    if (oldTranslation) {
+      ElMessageBox.confirm(
+        `是否在所有译文中将 "${oldTranslation}" 替换为 "${newTrans}"？`,
+        '全局替换术语',
+        {
+          confirmButtonText: '替换',
+          cancelButtonText: '仅更新索引',
+          type: 'info',
+          distinguishCancelAndClose: true
+        }
+      ).then(() => {
+        // 用户选择替换
+        store.updateProperNoun(original, newTrans, true)
+        const count = store.replaceTermInAllTranslations(oldTranslation, newTrans)
+        ElMessage.success(`术语已更新，在 ${count} 条译文中进行了替换`)
+      }).catch((action) => {
+        if (action === 'cancel') {
+          // 用户选择仅更新索引
+          store.updateProperNoun(original, newTrans, false)
+          ElMessage.success(`术语 "${original}" 的译文已更新`)
+        }
+        // close 时不做任何操作
+      })
+    } else {
+      // 新增术语，直接更新
+      store.updateProperNoun(original, newTrans, false)
+      ElMessage.success(`术语 "${original}" 已添加`)
+    }
   }
 }
 

@@ -15,7 +15,7 @@
                 size="default"
                 :icon="Upload"
               >
-                选择SRT文件
+                选择原文SRT
               </el-button>
             </el-upload>
             <el-button
@@ -28,15 +28,29 @@
               翻译
             </el-button>
           </template>
-          <el-button
-            v-else
-            size="default"
-            :icon="Download"
-            :disabled="subtitles.length === 0"
-            @click="$emit('download')"
-          >
-            保存SRT
-          </el-button>
+          <template v-else>
+            <el-upload
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".srt"
+              :on-change="handleFileSelect"
+            >
+              <el-button
+                size="default"
+                :icon="Upload"
+              >
+                导入译文SRT
+              </el-button>
+            </el-upload>
+            <el-button
+              size="default"
+              :icon="Download"
+              :disabled="subtitles.length === 0"
+              @click="$emit('download')"
+            >
+              保存SRT
+            </el-button>
+          </template>
         </div>
       </div>
     </template>
@@ -50,7 +64,7 @@
       @dragleave.prevent="isDragging = false"
     >
       <div v-if="subtitles.length === 0" class="empty-prompt">
-        {{ isSource ? '拖入SRT文件或点击"选择SRT文件"按钮...' : '翻译将显示在这里...' }}
+        {{ isSource ? '拖入原文SRT文件或点击"选择原文SRT"按钮...' : '点击"翻译"或拖入已有译文SRT进行校对...' }}
       </div>
       
       <div v-else class="subtitles-container">
@@ -120,8 +134,6 @@ function handleFileSelect(file: UploadFile) {
 
 function handleDrop(event: DragEvent) {
   isDragging.value = false
-  
-  if (!props.isSource) return
   
   const files = event.dataTransfer?.files
   if (!files || files.length === 0) return
