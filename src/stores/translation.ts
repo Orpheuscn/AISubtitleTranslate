@@ -115,9 +115,13 @@ export const useTranslationStore = defineStore('translation', () => {
   // 在所有译文中全局替换术语
   function replaceTermInAllTranslations(oldTerm: string, newTerm: string) {
     let replacedCount = 0
+    // 转义正则表达式特殊字符
+    const escapedOldTerm = oldTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(escapedOldTerm, 'g')
+    
     subtitleEntries.value.forEach(entry => {
       if (entry.translatedText && entry.translatedText.includes(oldTerm)) {
-        entry.translatedText = entry.translatedText.replaceAll(oldTerm, newTerm)
+        entry.translatedText = entry.translatedText.replace(regex, newTerm)
         replacedCount++
       }
     })
