@@ -55,7 +55,7 @@
               v-model="row.translation"
               size="small"
               @blur="updateTerm(row.original, row.translation)"
-              @keyup.enter="(event) => event.target.blur()"
+              @keyup.enter="($event: any) => $event.target.blur()"
             />
           </template>
         </el-table-column>
