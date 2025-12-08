@@ -69,6 +69,21 @@ export function useSubtitleTranslation() {
     })
   }
 
+  // 筛选当前批次相关的术语
+  function filterRelevantTerms(batchTexts: string[], allTerms: ProperNoun): ProperNoun {
+    const relevantTerms: ProperNoun = {}
+    const batchContent = batchTexts.join(' ').toLowerCase()
+    
+    Object.entries(allTerms).forEach(([original, translation]) => {
+      // 检查术语是否在当前批次中出现
+      if (batchContent.includes(original.toLowerCase())) {
+        relevantTerms[original] = translation
+      }
+    })
+    
+    return relevantTerms
+  }
+
   // 批量翻译字幕
   async function translateSubtitleBatch(
     entries: SubtitleEntry[],
@@ -76,8 +91,18 @@ export function useSubtitleTranslation() {
     model: string,
     batchSize: number
   ): Promise<void> {
+    // 累积的术语索引（跨批次）
+    let accumulatedTerms: ProperNoun = { ...store.properNouns }
+    
+    console.log('=== 🚀 开始字幕翻译 ===')
+    console.log(`📊 总字幕数: ${entries.length}，批次大小: ${batchSize}`)
+    console.log(`📚 初始术语库数量: ${Object.keys(accumulatedTerms).length}`)
+    console.log('📖 初始术语索引:', JSON.stringify(accumulatedTerms, null, 2))
+    
     // 针对字幕翻译优化的系统提示词
-    const systemPrompt = `你是一个专业的电影字幕翻译助手。请将给定的英文字幕翻译成简体中文。
+    const getSystemPrompt = (terms: ProperNoun) => {
+      const hasTerms = Object.keys(terms).length > 0
+      return `你是一个专业的电影字幕翻译助手。请将给定的英文字幕翻译成简体中文。
 
 翻译要求：
 1. 保持原文的语气和情感表达
@@ -86,14 +111,20 @@ export function useSubtitleTranslation() {
 4. 适当意译，确保符合中文表达习惯
 5. 保留原文中的专有名词（人名、地名等），并在翻译后的专有名词列表中标注
 
+${hasTerms ? `**已知术语参考**（请在翻译时保持一致）：
+${JSON.stringify(terms, null, 2)}
+
+翻译时如果遇到已知术语，请使用提供的译文保持一致性。` : ''}
+
 请严格按照原始字幕的序号返回翻译结果，每条翻译前面保留[数字]索引标记。
 格式示例：
 [1] 这是第一条字幕的翻译
 [2] 这是第二条字幕的翻译
 
-翻译完成后，请另起一行，使用'### Proper Nouns:'作为标记，然后列出你在原文中识别出的专有名词（人名、地名、组织名等）及其对应的中文翻译，每行一个，格式为 '原文术语: 中文翻译'。如果没有识别到专有名词，则省略此部分。
+翻译完成后，请另起一行，使用'### Proper Nouns:'作为标记，然后列出你在原文中识别出的**新的**专有名词（人名、地名、组织名等）及其对应的中文翻译，每行一个，格式为 '原文术语: 中文翻译'。如果没有识别到新的专有名词，则省略此部分。
 
 确保翻译的字幕数量与请求中的字幕数量完全一致。`
+    }
 
     // 初始化翻译状态
     store.updateTranslationState({
@@ -116,14 +147,32 @@ export function useSubtitleTranslation() {
 
         const batch = batches[batchIndex]
         
+        console.log(`\n=== 📦 批次 ${batchIndex + 1}/${batches.length} ===`)
+        console.log(`📝 处理字幕: ${batch[0].index} - ${batch[batch.length - 1].index}`)
+        
         // 构建翻译请求文本（带序号）
         const prompt = batch.map(entry => `[${entry.index}] ${entry.text}`).join('\n\n')
+        const batchTexts = batch.map(entry => entry.text)
+        
+        // 筛选当前批次相关的术语
+        const relevantTerms = filterRelevantTerms(batchTexts, accumulatedTerms)
+        
+        console.log(`🔍 术语筛选结果:`)
+        console.log(`   累积术语总数: ${Object.keys(accumulatedTerms).length}`)
+        console.log(`   当前批次相关术语: ${Object.keys(relevantTerms).length}`)
+        console.log(`   相关术语列表:`, JSON.stringify(relevantTerms, null, 2))
+        
+        // 获取包含术语的系统提示词
+        const systemPrompt = getSystemPrompt(relevantTerms)
 
         try {
+          console.log(`📤 发送请求到 DeepSeek API...`)
           const result = await callDeepSeekAPI([
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `请将以下 ${batch.length} 条电影字幕翻译成中文，注意上下文关联，保留索引标记：\n\n${prompt}` }
           ], apiKey, model)
+          
+          console.log(`📥 收到 API 响应`)
 
           // 分离翻译和专有名词
           let translationPart = result
@@ -156,19 +205,32 @@ export function useSubtitleTranslation() {
             }
           })
 
-          // 更新专有名词
+          // 更新和累积专有名词
           if (properNounPart) {
             const newTerms = parseProperNouns(properNounPart)
+            const newTermsCount = Object.keys(newTerms).length
+            
+            console.log(`✨ 新识别的术语 (${newTermsCount}个):`, JSON.stringify(newTerms, null, 2))
+            
+            // 合并新术语到累积索引
             Object.entries(newTerms).forEach(([original, translation]) => {
-              store.updateProperNoun(original, translation)
+              if (!accumulatedTerms[original]) {
+                accumulatedTerms[original] = translation
+                store.updateProperNoun(original, translation, false)
+              }
             })
+            
+            console.log(`📚 累积术语索引已更新，总数: ${Object.keys(accumulatedTerms).length}`)
+            console.log(`📖 完整术语索引:`, JSON.stringify(accumulatedTerms, null, 2))
+          } else {
+            console.log(`ℹ️  本批次未识别到新术语`)
           }
 
           // 延迟以避免API限流
           await new Promise(resolve => setTimeout(resolve, 500))
 
         } catch (error) {
-          console.error(`批次 ${batchIndex + 1} 翻译失败:`, error)
+          console.error(`❌ 批次 ${batchIndex + 1} 翻译失败:`, error)
           
           // 标记错误
           batch.forEach(entry => {
@@ -184,6 +246,13 @@ export function useSubtitleTranslation() {
         processedCount += batch.length
         updateProgress(processedCount, entries.length)
       }
+      
+      console.log('\n=== ✅ 翻译完成 ===')
+      console.log(`📊 最终统计:`)
+      console.log(`   处理字幕数: ${processedCount}`)
+      console.log(`   累积术语总数: ${Object.keys(accumulatedTerms).length}`)
+      console.log(`   最终术语索引:`, JSON.stringify(accumulatedTerms, null, 2))
+      
     } finally {
       store.updateTranslationState({
         isTranslating: false,
