@@ -34,11 +34,17 @@
           </el-form-item>
           
           <el-form-item label="批量处理字幕数">
-            <el-select v-model="localSettings.batchSize" @change="updateBatchSize">
-              <el-option :label="30" :value="30" />
-              <el-option :label="50" :value="50" />
-              <el-option :label="100" :value="100" />
-            </el-select>
+            <el-input-number
+              v-model="localSettings.batchSize"
+              :min="1"
+              :max="200"
+              :step="1"
+              @change="updateBatchSize"
+              controls-position="right"
+            />
+            <span style="margin-left: 8px; color: #909399; font-size: 12px;">
+              建议: 50-100条
+            </span>
           </el-form-item>
         </el-form>
       </div>
@@ -74,8 +80,10 @@ function updateModel(value: 'deepseek-chat' | 'deepseek-coder') {
   store.updateSettings({ model: value })
 }
 
-function updateBatchSize(value: 30 | 50 | 100) {
-  store.updateSettings({ batchSize: value })
+function updateBatchSize(value: number | undefined) {
+  if (value && value >= 1 && value <= 200) {
+    store.updateSettings({ batchSize: value })
+  }
 }
 </script>
 

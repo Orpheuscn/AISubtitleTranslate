@@ -15,7 +15,7 @@ export interface ProperNoun {
 export interface TranslationSettings {
   apiKey: string
   model: 'deepseek-chat' | 'deepseek-coder'
-  batchSize: 30 | 50 | 100
+  batchSize: number // 自定义批量处理数量
 }
 
 export interface TranslationProgress {

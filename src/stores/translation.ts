@@ -10,7 +10,7 @@ export const useTranslationStore = defineStore('translation', () => {
   const settings = ref<TranslationSettings>({
     apiKey: localStorage.getItem('deepseek_api_key') || '',
     model: 'deepseek-chat',
-    batchSize: 30
+    batchSize: 100
   })
   
   const translationState = ref<TranslationState>({
