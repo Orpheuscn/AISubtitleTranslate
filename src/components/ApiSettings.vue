@@ -82,7 +82,7 @@ function updateModel(value: 'deepseek-chat' | 'deepseek-coder') {
 
 function updateBatchSize(value: number | undefined) {
   if (value && value >= 1 && value <= 200) {
-    store.updateSettings({ batchSize: value })
+  store.updateSettings({ batchSize: value })
   }
 }
 </script>
