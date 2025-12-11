@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 背景圆形 -->
+  <circle cx="256" cy="256" r="256" fill="#E6A23C"/>
+  
+  <!-- 电影胶片框 -->
+  <rect x="120" y="180" width="272" height="152" rx="8" fill="#2C3E50" stroke="#FFFFFF" stroke-width="4"/>
+  
+  <!-- 胶片孔 -->
+  <circle cx="140" cy="200" r="8" fill="#FFFFFF"/>
+  <circle cx="140" cy="256" r="8" fill="#FFFFFF"/>
+  <circle cx="140" cy="312" r="8" fill="#FFFFFF"/>
+  <circle cx="372" cy="200" r="8" fill="#FFFFFF"/>
+  <circle cx="372" cy="256" r="8" fill="#FFFFFF"/>
+  <circle cx="372" cy="312" r="8" fill="#FFFFFF"/>
+  
+  <!-- 字幕文本 (EN) -->
+  <text x="180" y="230" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#FFFFFF">EN</text>
+  
+  <!-- 箭头 -->
+  <path d="M 240 220 L 260 220 L 260 210 L 280 225 L 260 240 L 260 230 L 240 230 Z" fill="#FFFFFF"/>
+  
+  <!-- 字幕文本 (中文) -->
+  <text x="290" y="230" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#FFFFFF">中文</text>
+  
+  <!-- 字幕条 -->
+  <rect x="170" y="270" width="172" height="40" rx="4" fill="#FFFFFF" opacity="0.9"/>
+  <text x="256" y="296" font-family="Arial, sans-serif" font-size="18" font-weight="normal" fill="#2C3E50" text-anchor="middle">Subtitle</text>
+</svg>
