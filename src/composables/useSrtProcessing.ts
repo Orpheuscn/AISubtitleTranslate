@@ -77,24 +77,49 @@ export function useSrtProcessing() {
     let translationPart = translationResult
     const separator = '### Proper Nouns:'
     const separatorIndex = translationResult.indexOf(separator)
-    
+
     if (separatorIndex !== -1) {
       translationPart = translationResult.substring(0, separatorIndex).trim()
     }
-    
-    // 解析每一行翻译
-    const lines = translationPart.split('\n').filter(line => line.trim())
-    
-    entries.forEach(entry => {
-      // 查找对应序号的翻译
-      const line = lines.find(l => {
-        const match = l.match(/^\[(\d+)\]/)
-        return match && parseInt(match[1]) === entry.index
+
+    // 解析翻译结果 - 改进版：支持多行翻译内容
+    // 使用正则匹配所有 [数字] 标记及其后续内容
+    const indexPattern = /\[(\d+)\]/g
+    const translationMap = new Map<number, string>()
+
+    let match
+    const matches: Array<{ index: number; position: number }> = []
+
+    // 找到所有序号标记的位置
+    while ((match = indexPattern.exec(translationPart)) !== null) {
+      matches.push({
+        index: parseInt(match[1]),
+        position: match.index
       })
-      
-      if (line) {
-        // 提取翻译文本（去掉序号标记）
-        const translation = line.replace(/^\[\d+\]\s*/, '').trim()
+    }
+
+    // 提取每个序号对应的翻译内容（从当前序号到下一个序号之间的所有内容）
+    for (let i = 0; i < matches.length; i++) {
+      const current = matches[i]
+      const next = matches[i + 1]
+
+      // 提取内容：从当前 [数字] 标记后到下一个 [数字] 标记前（或到结尾）
+      const startPos = current.position
+      const endPos = next ? next.position : translationPart.length
+      const fullText = translationPart.substring(startPos, endPos)
+
+      // 移除开头的 [数字] 标记，保留后续所有内容（包括换行）
+      const translation = fullText.replace(/^\[\d+\]\s*/, '').trim()
+
+      if (translation) {
+        translationMap.set(current.index, translation)
+      }
+    }
+
+    // 将翻译结果填充到对应的字幕条目
+    entries.forEach(entry => {
+      const translation = translationMap.get(entry.index)
+      if (translation) {
         entry.translatedText = translation
         entry.isMissing = false
       } else {
