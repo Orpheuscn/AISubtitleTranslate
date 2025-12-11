@@ -103,7 +103,14 @@ ${JSON.stringify(terms, null, 2)}
 [1] 这是第一条字幕的翻译
 [2] 这是第二条字幕的翻译
 
-翻译完成后，请另起一行，使用'### Proper Nouns:'作为标记，然后列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等）及其对应的中文翻译，每行一个词对词翻译，不要任何注解，格式为 '原文术语: 中文翻译'。如果没有识别到新的专有名词，则省略此部分。
+翻译完成后，请另起一行，使用'### Proper Nouns JSON:'作为标记，然后在标记后的下一行，以JSON格式列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等），格式为：{"原文术语1": "中文翻译1", "原文术语2": "中文翻译2"}。JSON中只包含术语的词对词翻译，不要添加任何注解或说明。如果没有识别到新的专有名词，则省略此部分。
+
+示例格式：
+[1] 第一条字幕的翻译
+[2] 第二条字幕的翻译
+
+### Proper Nouns JSON:
+{"Alice": "爱丽丝", "Wonderland": "仙境"}
 
 确保翻译的字幕数量与请求中的字幕数量完全一致。`
     }
@@ -159,7 +166,7 @@ ${JSON.stringify(terms, null, 2)}
           // 分离翻译和专有名词
           let translationPart = result
           let properNounPart = ""
-          const separator = '### Proper Nouns:'
+          const separator = '### Proper Nouns JSON:'
           const separatorIndex = result.indexOf(separator)
 
           if (separatorIndex !== -1) {
