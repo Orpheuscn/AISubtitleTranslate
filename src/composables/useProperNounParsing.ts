@@ -77,13 +77,23 @@ export function useProperNounParsing() {
       const hasChinese = /[\u4e00-\u9fa5]/.test(afterFirstColon)
       if (hasChinese) {
         // 移除可能的英文前缀，只保留中文部分
-        // 修复：添加了 · (间隔号) 到匹配字符集中，用于支持带间隔号的外文人名翻译（如：阿尔菲·鲍恩）
-        const chineseMatch = afterFirstColon.match(/[\u4e00-\u9fa5《》：、，。！？；""''（）·]+/)
+        // 支持的字符包括：
+        // - 中文字符 \u4e00-\u9fa5
+        // - 中文标点 《》：、，。！？；""''（）
+        // - 间隔号 · (用于外文人名翻译，如：阿尔菲·鲍恩)
+        // - 连字符 - (用于复合词，如：三十-四十)
+        // - 破折号 — (用于解释说明)
+        // - 省略号 …
+        // - 数字 0-9 (翻译中可能包含数字)
+        // - 空格 (多词翻译)
+        // - 斜杠 / (用于并列，如：作者/编辑)
+        // - 与号 & (用于连接)
+        const chineseMatch = afterFirstColon.match(/[\u4e00-\u9fa5《》：、，。！？；""''（）·\-—…0-9\s/&]+/)
         if (chineseMatch) {
           const translation = chineseMatch[0].trim()
           console.log('  直接提取中文 - 最终原文:', original)
           console.log('  直接提取中文 - 最终译文:', translation)
-          
+
           if (original && translation && !store.properNouns[original]) {
             newTerms[original] = translation
           }
@@ -99,6 +109,4 @@ export function useProperNounParsing() {
     parseProperNouns
   }
 }
-
-
 
