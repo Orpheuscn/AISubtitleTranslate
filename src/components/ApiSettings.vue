@@ -29,7 +29,7 @@
           <el-form-item label="选择模型">
             <el-select v-model="localSettings.model" @change="updateModel">
               <el-option label="DeepSeek Chat" value="deepseek-chat" />
-              <el-option label="DeepSeek Coder" value="deepseek-coder" />
+              <el-option label="DeepSeek Reasoner" value="deepseek-reasoner" />
             </el-select>
           </el-form-item>
           
@@ -47,7 +47,7 @@
             </span>
           </el-form-item>
 
-          <el-form-item label="自定义翻译提示词">
+          <el-form-item label="自定义提示词">
             <el-input
               v-model="localSettings.customPrompt"
               type="textarea"

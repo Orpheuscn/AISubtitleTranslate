@@ -12,19 +12,6 @@
       <!-- API设置 -->
       <ApiSettings />
 
-      <!-- 翻译进度（仅在翻译时显示停止按钮） -->
-      <el-card v-if="store.translationState.isTranslating" class="progress-card">
-        <div class="progress-message">{{ store.translationState.currentMessage }}</div>
-        <el-button
-          type="danger"
-          size="small"
-          @click="handleStopTranslation"
-          style="margin-top: 8px"
-        >
-          停止翻译
-        </el-button>
-      </el-card>
-
       <!-- 专有名词索引 -->
       <ProperNounIndex />
 
@@ -283,12 +270,6 @@ async function handleTranslate() {
   }
 }
 
-// 停止翻译
-function handleStopTranslation() {
-  store.updateTranslationState({ shouldStop: true })
-  ElMessage.info('正在停止翻译...')
-}
-
 // 处理删除
 async function handleDelete(index: number) {
   try {
@@ -319,15 +300,5 @@ async function handleDelete(index: number) {
   max-width: 1400px;
   margin: 0 auto;
   padding: 80px 24px 24px;
-}
-
-.progress-card {
-  margin-bottom: 16px;
-}
-
-.progress-message {
-  color: #606266;
-  font-size: 14px;
-  text-align: center;
 }
 </style>

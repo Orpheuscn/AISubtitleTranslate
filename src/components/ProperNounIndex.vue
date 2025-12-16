@@ -64,7 +64,7 @@
         size="small"
       >
         <el-table-column prop="original" label="原文术语" width="200" />
-        <el-table-column label="中文翻译">
+        <el-table-column label="译文">
           <template #default="{ row }">
             <el-input
               v-model="row.translation"
