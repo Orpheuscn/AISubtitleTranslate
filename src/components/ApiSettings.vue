@@ -51,17 +51,17 @@
             <el-input
               v-model="localSettings.customPrompt"
               type="textarea"
-              :rows="6"
-              placeholder="例如：你是一个专业的字幕翻译助手。请将给定的英文字幕翻译成日语。要求保持原文语气，使用自然流畅的日语表达..."
+              :rows="3"
+              placeholder="你是一个专业的电影字幕翻译助手。请将给定的字幕翻译成简体中文。"
               @input="handleCustomPromptInput"
               @blur="handleCustomPromptBlur"
             />
             <div style="margin-top: 4px; color: #909399; font-size: 12px; line-height: 1.6;">
               <div><strong>说明：</strong></div>
-              <div>• 自定义提示词仅替换<strong>翻译指令部分</strong>（如目标语言、翻译风格等）</div>
-              <div>• <strong>不会替换</strong>：术语参考、返回格式要求（这些始终保留）</div>
-              <div>• 留空则使用系统默认提示词（翻译成简体中文）</div>
-              <div>• 清空输入框将恢复默认设置</div>
+              <div>• 自定义提示词用于指定<strong>目标语言和补充翻译要求</strong></div>
+              <div>• <strong>固定保留</strong>：翻译要求（6条）、术语参考、返回格式要求</div>
+              <div>• <strong>默认提示词</strong>："你是一个专业的电影字幕翻译助手。请将给定的字幕翻译成简体中文。"</div>
+              <div>• 留空则使用默认提示词，清空输入框将恢复默认设置</div>
               <div>• 翻译时可在浏览器控制台查看完整提示词</div>
             </div>
           </el-form-item>

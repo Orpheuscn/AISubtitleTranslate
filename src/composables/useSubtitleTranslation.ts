@@ -98,18 +98,21 @@ export function useSubtitleTranslation() {
         translationInstruction = customPrompt
       } else {
         console.log('ℹ️ 使用默认提示词')
-        translationInstruction = `你是一个专业的电影字幕翻译助手。请将给定的英文字幕翻译成简体中文。
+        translationInstruction = '你是一个专业的电影字幕翻译助手。请将给定的字幕翻译成简体中文。'
+      }
+
+      // 第二部分：固定的翻译要求（始终保留，不可替换）
+      const translationRequirements = `
 
 翻译要求：
 1. 保持原文的语气和情感表达
-2. 使用口语化、自然流畅的中文
+2. 使用口语化、自然流畅的语言
 3. 考虑字幕的上下文关联性，保持剧情连贯
 4. 有些句子在跨行处可能有断开，要根据上下文进行合适的衔接
-5. 适当意译，确保符合中文表达习惯
+5. 适当意译，确保符合目标语言的表达习惯
 6. 保留原文中的专有名词（人名、地名、术语等），并在翻译后的专有名词列表中标注`
-      }
 
-      // 第二部分：术语参考（始终保留）
+      // 第三部分：术语参考（始终保留）
       const termsSection = hasTerms ? `
 
 **已知术语参考**（请在翻译时保持一致）：
@@ -117,7 +120,7 @@ ${JSON.stringify(terms, null, 2)}
 
 翻译时如果遇到已知术语，请使用提供的译文保持一致性。` : ''
 
-      // 第三部分：返回格式要求（始终保留，语言无关）
+      // 第四部分：返回格式要求（始终保留，语言无关）
       const formatSection = `
 
 **返回格式要求：**
@@ -142,7 +145,7 @@ ${JSON.stringify(terms, null, 2)}
 3. 确保翻译的字幕数量与请求中的字幕数量完全一致。`
 
       // 组合完整提示词
-      const fullPrompt = translationInstruction + termsSection + formatSection
+      const fullPrompt = translationInstruction + translationRequirements + termsSection + formatSection
 
       // 打印完整提示词供调试
       console.log('📋 完整系统提示词：')
