@@ -46,6 +46,19 @@
               建议: 50-100条
             </span>
           </el-form-item>
+
+          <el-form-item label="自定义翻译提示词">
+            <el-input
+              v-model="localSettings.customPrompt"
+              type="textarea"
+              :rows="4"
+              placeholder="留空则使用系统默认提示词。自定义提示词将替换默认的翻译指令（不影响术语库处理）"
+              @change="updateCustomPrompt"
+            />
+            <div style="margin-top: 4px; color: #909399; font-size: 12px;">
+              提示：自定义提示词仅用于翻译，不影响专有名词的处理逻辑
+            </div>
+          </el-form-item>
         </el-form>
       </div>
     </el-collapse-transition>
@@ -64,7 +77,8 @@ const visible = ref(false)
 const localSettings = reactive<TranslationSettings>({
   apiKey: store.settings.apiKey,
   model: store.settings.model,
-  batchSize: store.settings.batchSize
+  batchSize: store.settings.batchSize,
+  customPrompt: store.settings.customPrompt || ''
 })
 
 // 监听store变化并同步到本地
@@ -82,8 +96,12 @@ function updateModel(value: 'deepseek-chat' | 'deepseek-coder') {
 
 function updateBatchSize(value: number | undefined) {
   if (value && value >= 1 && value <= 200) {
-  store.updateSettings({ batchSize: value })
+    store.updateSettings({ batchSize: value })
   }
+}
+
+function updateCustomPrompt(value: string) {
+  store.updateSettings({ customPrompt: value })
 }
 </script>
 

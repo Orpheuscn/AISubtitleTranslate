@@ -1,32 +1,32 @@
 <template>
   <div class="translation-container">
-    <!-- 主题切换 -->
-    <div class="top-bar">
-      <ThemeToggle />
-    </div>
-    
-    <!-- API设置 -->
-    <ApiSettings />
+    <!-- 固定 Header -->
+    <AppHeader
+      :total-subtitles="store.subtitleEntries.length"
+      :translated-count="translatedCount"
+      :missing-count="store.missingTranslationsCount"
+    />
 
-    <!-- 翻译进度 -->
-    <el-card v-if="store.translationState.isTranslating" class="progress-card">
-      <el-progress 
-        :percentage="store.translationState.progress.percentage" 
-        :status="store.translationState.shouldStop ? 'exception' : undefined"
-      />
-      <div class="progress-message">{{ store.translationState.currentMessage }}</div>
-      <el-button 
-        type="danger" 
-        size="small" 
-        @click="handleStopTranslation"
-        style="margin-top: 12px"
-      >
-        停止翻译
-      </el-button>
-    </el-card>
+    <!-- 主内容区域 -->
+    <div class="main-content">
+      <!-- API设置 -->
+      <ApiSettings />
 
-    <!-- 专有名词索引 -->
-    <ProperNounIndex />
+      <!-- 翻译进度（仅在翻译时显示停止按钮） -->
+      <el-card v-if="store.translationState.isTranslating" class="progress-card">
+        <div class="progress-message">{{ store.translationState.currentMessage }}</div>
+        <el-button
+          type="danger"
+          size="small"
+          @click="handleStopTranslation"
+          style="margin-top: 8px"
+        >
+          停止翻译
+        </el-button>
+      </el-card>
+
+      <!-- 专有名词索引 -->
+      <ProperNounIndex />
 
     <!-- 字幕表格 -->
     <SubtitleTable
@@ -43,25 +43,31 @@
       @edit-source="handleEditSource"
       @delete="handleDelete"
     />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTranslationStore } from '@/stores/translation'
 import { useSrtProcessing } from '@/composables/useSrtProcessing'
 import { useSubtitleTranslation } from '@/composables/useSubtitleTranslation'
 import { useSubtitleConverter } from '@/composables/useSubtitleConverter'
+import AppHeader from '@/components/AppHeader.vue'
 import ApiSettings from '@/components/ApiSettings.vue'
 import ProperNounIndex from '@/components/ProperNounIndex.vue'
 import SubtitleTable from '@/components/SubtitleTable.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const store = useTranslationStore()
 const { parseSrt, generateSrt, downloadSrt, generateBilingualASS, downloadAss } = useSrtProcessing()
 const { translateSubtitleBatch, retranslateSingleSubtitle } = useSubtitleTranslation()
 const { convertToSRT } = useSubtitleConverter()
+
+// 计算已翻译数量
+const translatedCount = computed(() => {
+  return store.subtitleEntries.filter(e => e.translatedText && !e.isMissing).length
+})
 
 // 处理原文文件选择
 async function handleFileSelected(file: File) {
@@ -306,15 +312,13 @@ async function handleDelete(index: number) {
 
 <style scoped>
 .translation-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+  min-height: 100vh;
 }
 
-.top-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
+.main-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 80px 24px 24px;
 }
 
 .progress-card {
@@ -322,7 +326,6 @@ async function handleDelete(index: number) {
 }
 
 .progress-message {
-  margin-top: 12px;
   color: #606266;
   font-size: 14px;
   text-align: center;

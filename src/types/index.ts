@@ -16,6 +16,7 @@ export interface TranslationSettings {
   apiKey: string
   model: 'deepseek-chat' | 'deepseek-coder'
   batchSize: number // 自定义批量处理数量
+  customPrompt?: string // 自定义翻译提示词
 }
 
 export interface TranslationProgress {

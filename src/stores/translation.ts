@@ -10,7 +10,8 @@ export const useTranslationStore = defineStore('translation', () => {
   const settings = ref<TranslationSettings>({
     apiKey: localStorage.getItem('deepseek_api_key') || '',
     model: 'deepseek-chat',
-    batchSize: 100
+    batchSize: 100,
+    customPrompt: localStorage.getItem('custom_translation_prompt') || ''
   })
   
   const translationState = ref<TranslationState>({
@@ -54,8 +55,11 @@ export const useTranslationStore = defineStore('translation', () => {
 
   function updateSettings(newSettings: Partial<TranslationSettings>) {
     settings.value = { ...settings.value, ...newSettings }
-    if (newSettings.apiKey) {
+    if (newSettings.apiKey !== undefined) {
       localStorage.setItem('deepseek_api_key', newSettings.apiKey)
+    }
+    if (newSettings.customPrompt !== undefined) {
+      localStorage.setItem('custom_translation_prompt', newSettings.customPrompt)
     }
   }
 

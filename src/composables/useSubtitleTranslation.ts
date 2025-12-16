@@ -83,6 +83,35 @@ export function useSubtitleTranslation() {
     // 针对字幕翻译优化的系统提示词
     const getSystemPrompt = (terms: ProperNoun) => {
       const hasTerms = Object.keys(terms).length > 0
+      const customPrompt = store.settings.customPrompt?.trim()
+
+      // 如果有自定义提示词，使用自定义提示词
+      if (customPrompt) {
+        return `${customPrompt}
+
+${hasTerms ? `**已知术语参考**（请在翻译时保持一致）：
+${JSON.stringify(terms, null, 2)}
+
+翻译时如果遇到已知术语，请使用提供的译文保持一致性。` : ''}
+
+请严格按照原始字幕的序号返回翻译结果，每条翻译前面保留[数字]索引标记。
+格式示例：
+[1] 这是第一条字幕的翻译
+[2] 这是第二条字幕的翻译
+
+翻译完成后，请另起一行，使用'### Proper Nouns JSON:'作为标记，然后在标记后的下一行，以JSON格式列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等），格式为：{"原文术语1": "中文翻译1", "原文术语2": "中文翻译2"}。JSON中只包含术语的词对词翻译，不要添加任何注解或说明。如果没有识别到新的专有名词，则省略此部分。
+
+示例格式：
+[1] 第一条字幕的翻译
+[2] 第二条字幕的翻译
+
+### Proper Nouns JSON:
+{"Alice": "爱丽丝", "Wonderland": "仙境"}
+
+确保翻译的字幕数量与请求中的字幕数量完全一致。`
+      }
+
+      // 默认提示词
       return `你是一个专业的电影字幕翻译助手。请将给定的英文字幕翻译成简体中文。
 
 翻译要求：
