@@ -199,10 +199,12 @@ ${JSON.stringify(terms, null, 2)}
         const systemPrompt = getSystemPrompt(relevantTerms)
 
         try {
+          const userMessage = `请翻译以下 ${batch.length} 条电影字幕，注意上下文关联，保留索引标记：\n\n${prompt}`
           console.log(`📤 发送请求到 DeepSeek API...`)
+          console.log(`📨 User 消息:`, userMessage.substring(0, 200))
           const result = await callDeepSeekAPI([
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `请将以下 ${batch.length} 条电影字幕翻译成中文，注意上下文关联，保留索引标记：\n\n${prompt}` }
+            { role: 'user', content: userMessage }
           ], apiKey, model)
           
           console.log(`📥 收到 API 响应`)
@@ -327,7 +329,17 @@ ${JSON.stringify(terms, null, 2)}
     model: string,
     context?: { previous?: SubtitleEntry; next?: SubtitleEntry }
   ): Promise<void> {
-    let systemPrompt = `你是一个专业的电影字幕翻译助手。请将给定的英文字幕翻译成简体中文。
+    // 使用与批量翻译相同的提示词逻辑
+    const customPrompt = store.settings.customPrompt?.trim()
+    let translationInstruction = ''
+
+    if (customPrompt) {
+      translationInstruction = customPrompt
+    } else {
+      translationInstruction = '你是一个专业的电影字幕翻译助手。请将给定的字幕翻译成简体中文。'
+    }
+
+    const systemPrompt = `${translationInstruction}
 保持口语化、自然流畅的表达。只返回翻译结果，不要包含任何解释、标记或索引。`
 
     let userPrompt = entry.text
@@ -335,23 +347,23 @@ ${JSON.stringify(terms, null, 2)}
     // 如果提供了上下文，包含在请求中以提高翻译质量
     if (context && (context.previous || context.next)) {
       userPrompt = '请翻译以下字幕，考虑上下文：\n\n'
-      
+
       if (context.previous) {
         userPrompt += `[上一条] ${context.previous.text}\n`
         if (context.previous.translatedText) {
           userPrompt += `[译文] ${context.previous.translatedText}\n\n`
         }
       }
-      
+
       userPrompt += `[当前] ${entry.text}\n\n`
-      
+
       if (context.next) {
         userPrompt += `[下一条] ${context.next.text}\n`
       }
-      
+
       userPrompt += '\n只返回[当前]字幕的翻译结果。'
     } else {
-      userPrompt = `请将以下电影字幕翻译成中文：\n\n${entry.text}`
+      userPrompt = `请翻译以下电影字幕：\n\n${entry.text}`
     }
 
     const result = await callDeepSeekAPI([
