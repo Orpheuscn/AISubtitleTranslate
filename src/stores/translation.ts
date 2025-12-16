@@ -66,10 +66,13 @@ export const useTranslationStore = defineStore('translation', () => {
     if (newSettings.customPrompt !== undefined) {
       if (newSettings.customPrompt) {
         storage.set(STORAGE_KEYS.CUSTOM_PROMPT, newSettings.customPrompt)
+        console.log('💾 保存自定义提示词到 localStorage:', newSettings.customPrompt)
       } else {
         storage.remove(STORAGE_KEYS.CUSTOM_PROMPT)
+        console.log('🗑️ 删除自定义提示词')
       }
     }
+    console.log('⚙️ 当前 settings.customPrompt:', settings.value.customPrompt)
   }
 
   function updateTranslationState(updates: Partial<TranslationState>) {

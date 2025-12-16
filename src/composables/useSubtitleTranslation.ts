@@ -79,6 +79,7 @@ export function useSubtitleTranslation() {
     console.log(`📊 总字幕数: ${entries.length}，批次大小: ${batchSize}`)
     console.log(`📚 初始术语库数量: ${Object.keys(accumulatedTerms).length}`)
     console.log('📖 初始术语索引:', JSON.stringify(accumulatedTerms, null, 2))
+    console.log('🎯 当前 store.settings.customPrompt:', store.settings.customPrompt)
     
     // 针对字幕翻译优化的系统提示词
     const getSystemPrompt = (terms: ProperNoun) => {
@@ -86,9 +87,11 @@ export function useSubtitleTranslation() {
       const customPrompt = store.settings.customPrompt?.trim()
 
       console.log('🔍 检查自定义提示词:', {
+        rawValue: store.settings.customPrompt,
+        trimmedValue: customPrompt,
         hasCustomPrompt: !!customPrompt,
         customPromptLength: customPrompt?.length || 0,
-        customPromptPreview: customPrompt?.substring(0, 50) || '无'
+        customPromptPreview: customPrompt?.substring(0, 100) || '无'
       })
 
       // 第一部分：翻译指令（可被自定义提示词替换）
