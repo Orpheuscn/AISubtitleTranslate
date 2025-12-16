@@ -130,20 +130,20 @@ ${JSON.stringify(terms, null, 2)}
 
 1. 请严格按照原始字幕的序号返回翻译结果，每条翻译前面保留[数字]索引标记。
    格式示例：
-   [1] 第一条字幕的翻译
-   [2] 第二条字幕的翻译
+   [1] <translation of subtitle 1>
+   [2] <translation of subtitle 2>
 
 2. 翻译完成后，请另起一行，使用'### Proper Nouns JSON:'作为标记，然后在标记后的下一行，以JSON格式列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等）。
-   格式：{"原文术语1": "译文1", "原文术语2": "译文2"}
+   格式：{"original_term_1": "translated_term_1", "original_term_2": "translated_term_2"}
    JSON中只包含术语的词对词翻译，不要添加任何注解或说明。
    如果没有识别到新的专有名词，则省略此部分。
 
    示例格式：
-   [1] 第一条字幕的翻译
-   [2] 第二条字幕的翻译
+   [1] <translation of subtitle 1>
+   [2] <translation of subtitle 2>
 
    ### Proper Nouns JSON:
-   {"Alice": "爱丽丝", "Wonderland": "仙境"}
+   {"Alice": "Alice", "Wonderland": "Wonderland"}
 
 3. 确保翻译的字幕数量与请求中的字幕数量完全一致。`
 
