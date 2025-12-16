@@ -53,10 +53,11 @@
               type="textarea"
               :rows="4"
               placeholder="留空则使用系统默认提示词。自定义提示词将替换默认的翻译指令（不影响术语库处理）"
-              @change="updateCustomPrompt"
+              @input="handleCustomPromptInput"
+              @blur="handleCustomPromptBlur"
             />
             <div style="margin-top: 4px; color: #909399; font-size: 12px;">
-              提示：自定义提示词仅用于翻译，不影响专有名词的处理逻辑
+              提示：自定义提示词仅用于翻译，不影响专有名词的处理逻辑。清空输入框将恢复使用系统默认提示词。
             </div>
           </el-form-item>
         </el-form>
@@ -100,8 +101,35 @@ function updateBatchSize(value: number | undefined) {
   }
 }
 
+let customPromptTimer: ReturnType<typeof setTimeout> | null = null
+
+// 输入时防抖更新
+function handleCustomPromptInput(value: string) {
+  if (customPromptTimer) {
+    clearTimeout(customPromptTimer)
+  }
+  customPromptTimer = setTimeout(() => {
+    updateCustomPrompt(value)
+  }, 500)
+}
+
+// 失去焦点时立即更新
+function handleCustomPromptBlur() {
+  if (customPromptTimer) {
+    clearTimeout(customPromptTimer)
+  }
+  updateCustomPrompt(localSettings.customPrompt || '')
+}
+
 function updateCustomPrompt(value: string) {
-  store.updateSettings({ customPrompt: value })
+  const trimmedValue = value.trim()
+  // 如果为空，传递空字符串以触发删除 localStorage
+  store.updateSettings({ customPrompt: trimmedValue })
+  console.log('📝 更新自定义提示词:', {
+    isEmpty: !trimmedValue,
+    length: trimmedValue.length,
+    preview: trimmedValue.substring(0, 50)
+  })
 }
 </script>
 

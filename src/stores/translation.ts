@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { SubtitleEntry, ProperNoun, TranslationSettings, TranslationState } from '@/types'
+import { storage, STORAGE_KEYS } from '@/utils/storage'
 
 export const useTranslationStore = defineStore('translation', () => {
   // 状态
@@ -8,10 +9,10 @@ export const useTranslationStore = defineStore('translation', () => {
   const originalFileName = ref<string>('')
   const properNouns = ref<ProperNoun>({})
   const settings = ref<TranslationSettings>({
-    apiKey: localStorage.getItem('deepseek_api_key') || '',
+    apiKey: storage.get(STORAGE_KEYS.API_KEY) || '',
     model: 'deepseek-chat',
     batchSize: 100,
-    customPrompt: localStorage.getItem('custom_translation_prompt') || ''
+    customPrompt: storage.get(STORAGE_KEYS.CUSTOM_PROMPT) || ''
   })
   
   const translationState = ref<TranslationState>({
@@ -56,10 +57,18 @@ export const useTranslationStore = defineStore('translation', () => {
   function updateSettings(newSettings: Partial<TranslationSettings>) {
     settings.value = { ...settings.value, ...newSettings }
     if (newSettings.apiKey !== undefined) {
-      localStorage.setItem('deepseek_api_key', newSettings.apiKey)
+      if (newSettings.apiKey) {
+        storage.set(STORAGE_KEYS.API_KEY, newSettings.apiKey)
+      } else {
+        storage.remove(STORAGE_KEYS.API_KEY)
+      }
     }
     if (newSettings.customPrompt !== undefined) {
-      localStorage.setItem('custom_translation_prompt', newSettings.customPrompt)
+      if (newSettings.customPrompt) {
+        storage.set(STORAGE_KEYS.CUSTOM_PROMPT, newSettings.customPrompt)
+      } else {
+        storage.remove(STORAGE_KEYS.CUSTOM_PROMPT)
+      }
     }
   }
 
@@ -86,7 +95,7 @@ export const useTranslationStore = defineStore('translation', () => {
 
   function loadProperNouns() {
     try {
-      const stored = localStorage.getItem('properNounIndex')
+      const stored = storage.get(STORAGE_KEYS.PROPER_NOUNS)
       properNouns.value = stored ? JSON.parse(stored) : {}
     } catch (error) {
       console.error('Failed to load proper nouns:', error)
@@ -96,7 +105,7 @@ export const useTranslationStore = defineStore('translation', () => {
 
   function saveProperNouns() {
     try {
-      localStorage.setItem('properNounIndex', JSON.stringify(properNouns.value))
+      storage.set(STORAGE_KEYS.PROPER_NOUNS, JSON.stringify(properNouns.value))
     } catch (error) {
       console.error('Failed to save proper nouns:', error)
     }

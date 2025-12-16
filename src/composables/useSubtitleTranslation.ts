@@ -85,8 +85,15 @@ export function useSubtitleTranslation() {
       const hasTerms = Object.keys(terms).length > 0
       const customPrompt = store.settings.customPrompt?.trim()
 
+      console.log('🔍 检查自定义提示词:', {
+        hasCustomPrompt: !!customPrompt,
+        customPromptLength: customPrompt?.length || 0,
+        customPromptPreview: customPrompt?.substring(0, 50) || '无'
+      })
+
       // 如果有自定义提示词，使用自定义提示词
       if (customPrompt) {
+        console.log('✅ 使用自定义提示词')
         return `${customPrompt}
 
 ${hasTerms ? `**已知术语参考**（请在翻译时保持一致）：
@@ -112,6 +119,7 @@ ${JSON.stringify(terms, null, 2)}
       }
 
       // 默认提示词
+      console.log('ℹ️ 使用默认提示词')
       return `你是一个专业的电影字幕翻译助手。请将给定的英文字幕翻译成简体中文。
 
 翻译要求：
