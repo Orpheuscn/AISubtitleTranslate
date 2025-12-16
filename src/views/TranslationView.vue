@@ -28,65 +28,64 @@
     <!-- 专有名词索引 -->
     <ProperNounIndex />
 
-    <!-- 文本区域 -->
-    <div class="text-container">
-      <div class="text-columns">
-        <TextColumn
-          title="原始字幕"
-          :subtitles="store.subtitleEntries"
-          :highlighted-index="store.highlightedIndex"
-          :permanent-highlight-index="store.permanentHighlightIndex"
-          :has-api-key="!!store.settings.apiKey"
-          is-source
-          @file-selected="handleFileSelected"
-          @translate="handleTranslate"
-          @highlight="handleHighlight"
-          @clear-highlight="handleClearHighlight"
-        />
-        
-        <TextColumn
-          title="中文译文"
-          :subtitles="store.subtitleEntries"
-          :highlighted-index="store.highlightedIndex"
-          :permanent-highlight-index="store.permanentHighlightIndex"
-          @file-selected="handleTranslationFileSelected"
-          @download="handleDownload"
-          @highlight="handleHighlight"
-          @clear-highlight="handleClearHighlight"
-          @retranslate="handleRetranslate"
-          @edit="handleEdit"
-        />
-      </div>
-    </div>
+    <!-- 字幕表格 -->
+    <SubtitleTable
+      :subtitles="store.subtitleEntries"
+      :highlighted-index="store.highlightedIndex"
+      :has-api-key="!!store.settings.apiKey"
+      :file-name="store.originalFileName"
+      @file-selected="handleFileSelected"
+      @translation-file-selected="handleTranslationFileSelected"
+      @translate="handleTranslate"
+      @download="handleDownloadSubtitle"
+      @retranslate="handleRetranslate"
+      @edit="handleEdit"
+      @edit-source="handleEditSource"
+      @delete="handleDelete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTranslationStore } from '@/stores/translation'
 import { useSrtProcessing } from '@/composables/useSrtProcessing'
 import { useSubtitleTranslation } from '@/composables/useSubtitleTranslation'
+import { useSubtitleConverter } from '@/composables/useSubtitleConverter'
 import ApiSettings from '@/components/ApiSettings.vue'
 import ProperNounIndex from '@/components/ProperNounIndex.vue'
-import TextColumn from '@/components/TextColumn.vue'
+import SubtitleTable from '@/components/SubtitleTable.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const store = useTranslationStore()
-const { parseSrt, generateSrt, downloadSrt } = useSrtProcessing()
+const { parseSrt, generateSrt, downloadSrt, generateBilingualASS, downloadAss } = useSrtProcessing()
 const { translateSubtitleBatch, retranslateSingleSubtitle } = useSubtitleTranslation()
+const { convertToSRT } = useSubtitleConverter()
 
 // 处理原文文件选择
 async function handleFileSelected(file: File) {
   try {
     const text = await file.text()
-    const entries = parseSrt(text)
-    
+
+    // 尝试格式转换
+    const convertedEntries = convertToSRT(text, file.name)
+    let entries
+
+    if (convertedEntries) {
+      // 转换成功
+      entries = convertedEntries
+      ElMessage.success(`已将 ${file.name} 转换为 SRT 格式`)
+    } else {
+      // 已经是 SRT 格式或转换失败，使用原始解析
+      entries = parseSrt(text)
+    }
+
     if (entries.length === 0) {
-      ElMessage.error('无法解析SRT文件，请检查文件格式')
+      ElMessage.error('无法解析字幕文件，请检查文件格式')
       return
     }
-    
+
     store.setSubtitleEntries(entries, file.name)
     ElMessage.success(`已加载 ${entries.length} 条原文字幕`)
   } catch (error) {
@@ -104,10 +103,22 @@ async function handleTranslationFileSelected(file: File) {
     }
 
     const text = await file.text()
-    const translationEntries = parseSrt(text)
-    
+
+    // 尝试格式转换
+    const convertedEntries = convertToSRT(text, file.name)
+    let translationEntries
+
+    if (convertedEntries) {
+      // 转换成功
+      translationEntries = convertedEntries
+      ElMessage.success(`已将 ${file.name} 转换为 SRT 格式`)
+    } else {
+      // 已经是 SRT 格式或转换失败，使用原始解析
+      translationEntries = parseSrt(text)
+    }
+
     if (translationEntries.length === 0) {
-      ElMessage.error('无法解析SRT文件，请检查文件格式')
+      ElMessage.error('无法解析字幕文件，请检查文件格式')
       return
     }
 
@@ -123,7 +134,7 @@ async function handleTranslationFileSelected(file: File) {
     })
 
     if (matchedCount === 0) {
-      ElMessage.warning('未找到匹配的字幕序号，请确认译文SRT与原文SRT对应')
+      ElMessage.warning('未找到匹配的字幕序号，请确认译文与原文对应')
     } else {
       ElMessage.success(`已导入 ${matchedCount} 条译文，可以开始校对`)
     }
@@ -133,27 +144,50 @@ async function handleTranslationFileSelected(file: File) {
   }
 }
 
-// 处理下载
-function handleDownload() {
+// 处理下载字幕
+function handleDownloadSubtitle(type: 'source' | 'translation' | 'bilingual') {
   if (store.subtitleEntries.length === 0) {
     ElMessage.warning('没有可保存的字幕')
     return
   }
 
-  const hasTranslation = store.subtitleEntries.some(e => e.translatedText && !e.isMissing)
-  if (!hasTranslation) {
-    ElMessage.warning('请先翻译字幕')
-    return
-  }
-
   try {
-    const srtContent = generateSrt(store.subtitleEntries, true)
-    const filename = store.originalFileName 
-      ? store.originalFileName.replace('.srt', '_translated.srt')
-      : 'translated.srt'
-    
-    downloadSrt(srtContent, filename)
-    ElMessage.success('SRT文件已保存')
+    const baseFilename = store.originalFileName
+      ? store.originalFileName.replace(/\.(srt|ass|ssa|vtt)$/i, '')
+      : 'subtitle'
+
+    switch (type) {
+      case 'source':
+        // 保存原文SRT
+        const sourceSrt = generateSrt(store.subtitleEntries, false)
+        downloadSrt(sourceSrt, `${baseFilename}_source.srt`)
+        ElMessage.success('原文字幕已保存')
+        break
+
+      case 'translation':
+        // 保存译文SRT
+        const hasTranslation = store.subtitleEntries.some(e => e.translatedText && !e.isMissing)
+        if (!hasTranslation) {
+          ElMessage.warning('没有可保存的译文')
+          return
+        }
+        const translationSrt = generateSrt(store.subtitleEntries, true)
+        downloadSrt(translationSrt, `${baseFilename}_translated.srt`)
+        ElMessage.success('译文字幕已保存')
+        break
+
+      case 'bilingual':
+        // 保存双语ASS
+        const hasTranslationForBilingual = store.subtitleEntries.some(e => e.translatedText && !e.isMissing)
+        if (!hasTranslationForBilingual) {
+          ElMessage.warning('没有可保存的译文')
+          return
+        }
+        const bilingualAss = generateBilingualASS(store.subtitleEntries)
+        downloadAss(bilingualAss, `${baseFilename}_bilingual.ass`)
+        ElMessage.success('双语字幕已保存')
+        break
+    }
   } catch (error) {
     console.error('保存失败:', error)
     ElMessage.error('保存失败')
@@ -202,7 +236,14 @@ async function handleRetranslate(index: number) {
 // 处理编辑
 function handleEdit(index: number, newText: string) {
   store.updateSubtitleTranslation(index, newText)
-  ElMessage.success('编辑已保存')
+}
+
+// 处理原文编辑
+function handleEditSource(index: number, newText: string) {
+  const entry = store.subtitleEntries.find(e => e.index === index)
+  if (entry) {
+    entry.text = newText
+  }
 }
 
 // 处理翻译
@@ -241,6 +282,26 @@ function handleStopTranslation() {
   store.updateTranslationState({ shouldStop: true })
   ElMessage.info('正在停止翻译...')
 }
+
+// 处理删除
+async function handleDelete(index: number) {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除这条字幕吗？删除后序号将自动重新排序。',
+      '确认删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    store.deleteSubtitleEntry(index)
+    ElMessage.success('字幕已删除，序号已重新排序')
+  } catch {
+    // 用户取消删除
+  }
+}
 </script>
 
 <style scoped>
@@ -265,23 +326,5 @@ function handleStopTranslation() {
   color: #606266;
   font-size: 14px;
   text-align: center;
-}
-
-.text-container {
-  margin-top: 24px;
-}
-
-.text-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  min-height: 500px;
-}
-
-@media (max-width: 768px) {
-  .text-columns {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
 }
 </style>

@@ -40,6 +40,8 @@ export const useTranslationStore = defineStore('translation', () => {
     subtitleEntries.value = entries
     originalFileName.value = filename
     permanentHighlightIndex.value = -1
+    // 自动按起始时间排序并重新编号
+    reindexSubtitles()
   }
 
   function updateSubtitleTranslation(index: number, translatedText: string) {
@@ -137,6 +139,28 @@ export const useTranslationStore = defineStore('translation', () => {
     return subtitleEntries.value.filter(entry => entry.isMissing)
   }
 
+  // 删除字幕条目并重新排序
+  function deleteSubtitleEntry(index: number) {
+    const entryIndex = subtitleEntries.value.findIndex(e => e.index === index)
+    if (entryIndex !== -1) {
+      subtitleEntries.value.splice(entryIndex, 1)
+      // 重新排序并更新序号
+      reindexSubtitles()
+    }
+  }
+
+  // 重新排序字幕并更新序号
+  function reindexSubtitles() {
+    // 按起始时间排序
+    subtitleEntries.value.sort((a, b) => {
+      return a.startTime.localeCompare(b.startTime)
+    })
+    // 重新编号
+    subtitleEntries.value.forEach((entry, idx) => {
+      entry.index = idx + 1
+    })
+  }
+
   // 初始化
   loadProperNouns()
 
@@ -149,13 +173,13 @@ export const useTranslationStore = defineStore('translation', () => {
     translationState,
     highlightedIndex,
     permanentHighlightIndex,
-    
+
     // 计算属性
     hasSubtitles,
     hasTranslation,
     missingTranslationsCount,
     isTranslationComplete,
-    
+
     // 方法
     setSubtitleEntries,
     updateSubtitleTranslation,
@@ -170,6 +194,8 @@ export const useTranslationStore = defineStore('translation', () => {
     removeProperNoun,
     clearProperNouns,
     retryMissingTranslations,
-    replaceTermInAllTranslations
+    replaceTermInAllTranslations,
+    deleteSubtitleEntry,
+    reindexSubtitles
   }
 })
