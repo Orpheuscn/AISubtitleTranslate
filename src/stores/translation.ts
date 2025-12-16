@@ -145,7 +145,7 @@ export const useTranslationStore = defineStore('translation', () => {
 
   function clearProperNouns() {
     properNouns.value = {}
-    localStorage.removeItem('properNounIndex')
+    storage.remove(STORAGE_KEYS.PROPER_NOUNS)
   }
 
   function retryMissingTranslations() {
