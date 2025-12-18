@@ -30,6 +30,9 @@
       @edit-source="handleEditSource"
       @delete="handleDelete"
     />
+
+    <!-- Footer -->
+    <AppFooter />
     </div>
   </div>
 </template>
@@ -45,6 +48,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import ApiSettings from '@/components/ApiSettings.vue'
 import ProperNounIndex from '@/components/ProperNounIndex.vue'
 import SubtitleTable from '@/components/SubtitleTable.vue'
+import AppFooter from '@/components/AppFooter.vue'
 
 const store = useTranslationStore()
 const { parseSrt, generateSrt, downloadSrt, generateBilingualASS, downloadAss } = useSrtProcessing()

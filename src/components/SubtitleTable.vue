@@ -19,7 +19,6 @@
           </el-upload>
           <el-button
             size="default"
-            type="primary"
             :icon="Promotion"
             :disabled="subtitles.length === 0 || !hasApiKey"
             @click="$emit('translate')"
@@ -117,8 +116,8 @@
               ></textarea>
             </td>
             <td class="actions">
-              <button @click="handleRetranslate(row.index)" class="btn-retranslate">重译</button>
-              <button @click="handleDelete(row.index)" class="btn-delete">删除</button>
+              <button @click="handleRetranslate(row.index)" class="btn-action btn-retranslate">重译</button>
+              <button @click="handleDelete(row.index)" class="btn-action btn-delete">删除</button>
             </td>
           </tr>
         </tbody>
@@ -358,22 +357,32 @@ function handleDrop(event: DragEvent) {
   transition: all 0.2s;
 }
 
-.btn-retranslate {
-  background-color: #409eff;
-  color: white;
+/* 操作按钮基础样式 - 参考专有名词索引的按钮样式 */
+.btn-action {
+  background-color: transparent;
+  border: 1px solid var(--el-border-color);
+  color: var(--el-text-color-regular);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-action:hover {
+  background-color: var(--el-fill-color-light);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
 }
 
 .btn-retranslate:hover {
-  background-color: #66b1ff;
-}
-
-.btn-delete {
-  background-color: #f56c6c;
-  color: white;
+  border-color: var(--el-color-success);
+  color: var(--el-color-success);
 }
 
 .btn-delete:hover {
-  background-color: #f78989;
+  border-color: var(--el-color-danger);
+  color: var(--el-color-danger);
 }
 
 /* 暗色模式适配 */
