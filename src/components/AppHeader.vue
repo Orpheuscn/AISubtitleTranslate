@@ -8,7 +8,12 @@
             {{ translatedCount }}/{{ totalSubtitles }}
             <span class="progress-percentage">({{ progressPercentage }}%)</span>
           </span>
-          <span v-if="missingCount > 0" class="missing-count">
+          <span
+            v-if="missingCount > 0"
+            class="missing-count"
+            @click="$emit('retranslate-missing')"
+            :title="`点击重译 ${missingCount} 条缺失的字幕`"
+          >
             {{ missingCount }} 条缺失
           </span>
         </div>
@@ -41,6 +46,11 @@ const progressPercentage = computed(() => {
   if (props.totalSubtitles === 0) return 0
   return Math.round((props.translatedCount / props.totalSubtitles) * 100)
 })
+
+// 定义事件
+defineEmits<{
+  'retranslate-missing': []
+}>()
 </script>
 
 <style scoped>
@@ -103,6 +113,13 @@ const progressPercentage = computed(() => {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.missing-count:hover {
+  background-color: #fde2e2;
+  transform: translateY(-1px);
 }
 
 .header-right {
@@ -127,6 +144,10 @@ html.dark .progress-text {
 html.dark .missing-count {
   background-color: #3a2a2b;
   color: #f89898;
+}
+
+html.dark .missing-count:hover {
+  background-color: #4a3a3b;
 }
 </style>
 

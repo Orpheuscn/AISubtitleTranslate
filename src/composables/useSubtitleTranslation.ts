@@ -129,9 +129,15 @@ ${JSON.stringify(terms, null, 2)}
 **返回格式要求：**
 
 1. 请严格按照原始字幕的序号返回翻译结果，每条翻译前面保留[数字]索引标记。
+   **重要：每个序号必须独占一行开头，不要将多条字幕合并到同一行。**
+
    格式示例：
    [1] <translation of subtitle 1>
    [2] <translation of subtitle 2>
+   [3] <translation of subtitle 3>
+
+   **错误示例（不要这样做）：**
+   [1] <translation 1> [2] <translation 2>  ❌ 不要将多条字幕放在同一行
 
 2. 翻译完成后，请另起一行，使用'### Proper Nouns JSON:'作为标记，然后在标记后的下一行，以JSON格式列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等）。
    格式：{"original_term_1": "translated_term_1", "original_term_2": "translated_term_2"}
@@ -145,7 +151,7 @@ ${JSON.stringify(terms, null, 2)}
    ### Proper Nouns JSON:
    {"Alice": "Alice", "Wonderland": "Wonderland"}
 
-3. 确保翻译的字幕数量与请求中的字幕数量完全一致。`
+3. 确保翻译的字幕数量与请求中的字幕数量完全一致，每个序号对应一条翻译。`
 
       // 组合完整提示词
       const fullPrompt = translationInstruction + translationRequirements + termsSection + formatSection
@@ -376,9 +382,31 @@ ${JSON.stringify(terms, null, 2)}
     entry.isMissing = false
   }
 
+  // 批量重译缺失的字幕
+  async function retranslateMissingSubtitles(
+    apiKey: string,
+    model: string,
+    batchSize: number = 20
+  ): Promise<void> {
+    const missingEntries = store.retryMissingTranslations()
+
+    if (missingEntries.length === 0) {
+      console.log('✅ 没有缺失的翻译')
+      return
+    }
+
+    console.log(`🔄 开始重译 ${missingEntries.length} 条缺失的字幕`)
+
+    // 使用批量翻译功能重译缺失的字幕
+    await translateSubtitleBatch(missingEntries, apiKey, model, batchSize)
+
+    console.log('✅ 缺失字幕重译完成')
+  }
+
   return {
     translateSubtitleBatch,
     retranslateSingleSubtitle,
+    retranslateMissingSubtitles,
     updateProgress
   }
 }

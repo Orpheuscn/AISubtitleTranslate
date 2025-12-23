@@ -5,6 +5,7 @@
       :total-subtitles="store.subtitleEntries.length"
       :translated-count="translatedCount"
       :missing-count="store.missingTranslationsCount"
+      @retranslate-missing="handleRetranslateMissing"
     />
 
     <!-- 主内容区域 -->
@@ -52,7 +53,7 @@ import AppFooter from '@/components/AppFooter.vue'
 
 const store = useTranslationStore()
 const { parseSrt, generateSrt, downloadSrt, generateBilingualASS, downloadAss } = useSrtProcessing()
-const { translateSubtitleBatch, retranslateSingleSubtitle } = useSubtitleTranslation()
+const { translateSubtitleBatch, retranslateSingleSubtitle, retranslateMissingSubtitles } = useSubtitleTranslation()
 const { convertToSRT } = useSubtitleConverter()
 
 // 计算已翻译数量
@@ -271,6 +272,49 @@ async function handleTranslate() {
   } catch (error: any) {
     console.error('翻译失败:', error)
     ElMessage.error(`翻译失败: ${error.message}`)
+  }
+}
+
+// 处理批量重译缺失字幕
+async function handleRetranslateMissing() {
+  if (!store.settings.apiKey) {
+    ElMessage.error('请输入DeepSeek API Key')
+    return
+  }
+
+  const missingCount = store.missingTranslationsCount
+  if (missingCount === 0) {
+    ElMessage.info('没有缺失的翻译')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要重译 ${missingCount} 条缺失的字幕吗？`,
+      '批量重译',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await retranslateMissingSubtitles(
+      store.settings.apiKey,
+      store.settings.model,
+      20 // 缺失字幕使用较小的批次大小
+    )
+
+    if (store.missingTranslationsCount === 0) {
+      ElMessage.success('重译完成！所有字幕已翻译')
+    } else {
+      ElMessage.warning(`重译完成，仍有 ${store.missingTranslationsCount} 条字幕缺失`)
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('重译失败:', error)
+      ElMessage.error(`重译失败: ${error.message}`)
+    }
   }
 }
 
