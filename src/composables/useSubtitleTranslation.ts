@@ -127,35 +127,37 @@ ${JSON.stringify(terms, null, 2)}
       // 第四部分：返回格式要求（始终保留，语言无关）
       const formatSection = `
 
-**返回格式要求：**
+**返回格式要求（必须严格遵守）：**
 
-1. 请严格按照原始字幕的序号返回翻译结果，每条翻译前面保留[数字]索引标记。
-   **重要：每个序号必须独占一行开头，不要将多条字幕合并到同一行。**
+1. **格式规则（极其重要）：**
+   - 每个序号 [数字] 必须在新的一行开头
+   - 序号后紧跟一个空格，然后是翻译内容
+   - 绝对不允许在同一行出现多个序号
+   - 每条翻译独占一行或多行（如果翻译内容较长）
 
-   格式示例：
-   [1] <translation of subtitle 1>
-   [2] <translation of subtitle 2>
-   [3] <translation of subtitle 3>
+   ✅ 正确格式：
+   [1020] 似乎他现在最关心的是
+   [1021] 促成东西方教会的和解与统一。
+   [1022] 尽管威尼斯人
+   [1023] 以及兰圣公国在困难，
 
-   **错误示例（不要这样做）：**
-   [1] <translation 1> [2] <translation 2>  ❌ 不要将多条字幕放在同一行
+   ❌ 错误格式（绝对禁止）：
+   [1022] 尽管威尼斯人 [1023] 以及兰圣公国在困难，
+   [1020] 似乎他现在最关心的是 [1021] 促成东西方教会的和解与统一。
 
-2. **注意：** 如果字幕中包含标记为 [CONTEXT] 的条目，这些是仅供上下文理解的辅助字幕，**不需要翻译，也不要在返回结果中包含这些序号**。
+2. **上下文字幕处理：**
+   如果字幕中包含标记为 [CONTEXT] 的条目，这些是仅供上下文理解的辅助字幕。
+   **不需要翻译，也不要在返回结果中包含这些序号**。
    只翻译没有 [CONTEXT] 标记的字幕。
 
-3. 翻译完成后，请另起一行，使用'### Proper Nouns JSON:'作为标记，然后在标记后的下一行，以JSON格式列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等）。
-   格式：{"original_term_1": "translated_term_1", "original_term_2": "translated_term_2"}
-   JSON中只包含术语的词对词翻译，不要添加任何注解或说明。
-   如果没有识别到新的专有名词，则省略此部分。
+3. **专有名词标记：**
+   翻译完成后，另起一行，使用'### Proper Nouns JSON:'作为标记，然后在下一行以JSON格式列出新识别的专有名词。
+   格式：{"original_term": "translated_term"}
+   如果没有新的专有名词，则省略此部分。
 
-   示例格式：
-   [1] <translation of subtitle 1>
-   [2] <translation of subtitle 2>
-
-   ### Proper Nouns JSON:
-   {"Alice": "Alice", "Wonderland": "Wonderland"}
-
-4. 确保翻译的字幕数量与**需要翻译的字幕数量**（不包含 [CONTEXT] 标记的）完全一致，每个序号对应一条翻译。`
+4. **数量检查：**
+   确保返回的翻译数量与需要翻译的字幕数量完全一致（不包含 [CONTEXT] 标记的）。
+   每个序号对应一条翻译，不能遗漏，不能合并。`
 
       // 组合完整提示词
       const fullPrompt = translationInstruction + translationRequirements + termsSection + formatSection
@@ -260,7 +262,19 @@ ${JSON.stringify(terms, null, 2)}
         const systemPrompt = getSystemPrompt(relevantTerms)
 
         try {
-          const userMessage = `请翻译以下电影字幕。注意：标记为 [CONTEXT] 的字幕仅供上下文理解，不需要翻译。只翻译没有 [CONTEXT] 标记的 ${batch.length} 条字幕，保留索引标记：\n\n${prompt}`
+          const userMessage = `请翻译以下电影字幕。
+
+**重要提醒：**
+- 标记为 [CONTEXT] 的字幕仅供上下文理解，不需要翻译
+- 只翻译没有 [CONTEXT] 标记的 ${batch.length} 条字幕
+- 每个序号 [数字] 必须在新的一行开头
+- 绝对不允许在同一行出现多个序号
+
+**字幕内容：**
+
+${prompt}
+
+**请严格按照格式返回翻译，每个序号独占一行。**`
           console.log(`📤 发送请求到 DeepSeek API...`)
           console.log(`📨 User 消息前 500 字符:`, userMessage.substring(0, 500))
           const result = await callDeepSeekAPI([
@@ -269,6 +283,7 @@ ${JSON.stringify(terms, null, 2)}
           ], apiKey, model)
           
           console.log(`📥 收到 API 响应`)
+          console.log(`📄 原始响应内容（前1000字符）:`, result.substring(0, 1000))
 
           // 分离翻译和专有名词
           let translationPart = result
@@ -280,6 +295,8 @@ ${JSON.stringify(terms, null, 2)}
             translationPart = result.substring(0, separatorIndex).trim()
             properNounPart = result.substring(separatorIndex + separator.length).trim()
           }
+
+          console.log(`📝 翻译部分（前500字符）:`, translationPart.substring(0, 500))
 
           // 解析翻译结果 - 改进版：支持多行翻译内容
           // 使用正则匹配所有 [数字] 标记及其后续内容
@@ -297,6 +314,8 @@ ${JSON.stringify(terms, null, 2)}
             })
           }
 
+          console.log(`🔢 找到的序号标记:`, matches.map(m => m.index))
+
           // 提取每个序号对应的翻译内容（从当前序号到下一个序号之间的所有内容）
           for (let i = 0; i < matches.length; i++) {
             const current = matches[i]
@@ -311,8 +330,21 @@ ${JSON.stringify(terms, null, 2)}
             const translation = fullText.replace(/^\[\d+\]\s*/, '').trim()
 
             if (translation) {
+              // 检测串行问题：翻译内容中不应该包含其他序号标记
+              const hasSerialIssue = /\[\d+\]/.test(translation)
+              if (hasSerialIssue) {
+                console.warn(`⚠️ 检测到串行问题！序号 ${current.index} 的翻译中包含其他序号标记:`, translation)
+                console.warn(`   原始片段:`, fullText)
+              }
+
               translationMap.set(current.index, translation)
             }
+          }
+
+          console.log(`✅ 解析完成，共提取 ${translationMap.size} 条翻译`)
+          console.log(`   期望数量: ${batch.length}`)
+          if (translationMap.size !== batch.length) {
+            console.warn(`⚠️ 翻译数量不匹配！期望 ${batch.length} 条，实际获得 ${translationMap.size} 条`)
           }
 
           // 将翻译结果填充到对应的字幕条目
@@ -322,6 +354,7 @@ ${JSON.stringify(terms, null, 2)}
               entry.translatedText = translation
               entry.isMissing = false
             } else {
+              console.warn(`⚠️ 序号 ${entry.index} 缺失翻译`)
               entry.translatedText = '[翻译缺失]'
               entry.isMissing = true
             }
