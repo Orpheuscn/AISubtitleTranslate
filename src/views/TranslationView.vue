@@ -261,7 +261,8 @@ async function handleTranslate() {
       store.subtitleEntries,
       store.settings.apiKey,
       store.settings.model,
-      store.settings.batchSize
+      store.settings.batchSize,
+      5  // 上下文大小：前后各5条
     )
 
     if (store.missingTranslationsCount === 0) {

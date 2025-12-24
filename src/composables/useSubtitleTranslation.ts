@@ -70,13 +70,14 @@ export function useSubtitleTranslation() {
     entries: SubtitleEntry[],
     apiKey: string,
     model: string,
-    batchSize: number
+    batchSize: number,
+    contextSize: number = 5  // 上下文字幕数量
   ): Promise<void> {
     // 累积的术语索引（跨批次）
     let accumulatedTerms: ProperNoun = { ...store.properNouns }
-    
+
     console.log('=== 🚀 开始字幕翻译 ===')
-    console.log(`📊 总字幕数: ${entries.length}，批次大小: ${batchSize}`)
+    console.log(`📊 总字幕数: ${entries.length}，批次大小: ${batchSize}，上下文大小: ${contextSize}`)
     console.log(`📚 初始术语库数量: ${Object.keys(accumulatedTerms).length}`)
     console.log('📖 初始术语索引:', JSON.stringify(accumulatedTerms, null, 2))
     console.log('🎯 当前 store.settings.customPrompt:', store.settings.customPrompt)
@@ -139,7 +140,10 @@ ${JSON.stringify(terms, null, 2)}
    **错误示例（不要这样做）：**
    [1] <translation 1> [2] <translation 2>  ❌ 不要将多条字幕放在同一行
 
-2. 翻译完成后，请另起一行，使用'### Proper Nouns JSON:'作为标记，然后在标记后的下一行，以JSON格式列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等）。
+2. **注意：** 如果字幕中包含标记为 [CONTEXT] 的条目，这些是仅供上下文理解的辅助字幕，**不需要翻译，也不要在返回结果中包含这些序号**。
+   只翻译没有 [CONTEXT] 标记的字幕。
+
+3. 翻译完成后，请另起一行，使用'### Proper Nouns JSON:'作为标记，然后在标记后的下一行，以JSON格式列出你在原文中识别出的**新的**专有名词（人名、地名、组织名、术语等）。
    格式：{"original_term_1": "translated_term_1", "original_term_2": "translated_term_2"}
    JSON中只包含术语的词对词翻译，不要添加任何注解或说明。
    如果没有识别到新的专有名词，则省略此部分。
@@ -151,7 +155,7 @@ ${JSON.stringify(terms, null, 2)}
    ### Proper Nouns JSON:
    {"Alice": "Alice", "Wonderland": "Wonderland"}
 
-3. 确保翻译的字幕数量与请求中的字幕数量完全一致，每个序号对应一条翻译。`
+4. 确保翻译的字幕数量与**需要翻译的字幕数量**（不包含 [CONTEXT] 标记的）完全一致，每个序号对应一条翻译。`
 
       // 组合完整提示词
       const fullPrompt = translationInstruction + translationRequirements + termsSection + formatSection
@@ -185,29 +189,80 @@ ${JSON.stringify(terms, null, 2)}
         if (store.translationState.shouldStop) break
 
         const batch = batches[batchIndex]
-        
+        const startIndex = batchIndex * batchSize
+
         console.log(`\n=== 📦 批次 ${batchIndex + 1}/${batches.length} ===`)
         console.log(`📝 处理字幕: ${batch[0].index} - ${batch[batch.length - 1].index}`)
-        
-        // 构建翻译请求文本（带序号）
-        const prompt = batch.map(entry => `[${entry.index}] ${entry.text}`).join('\n\n')
-        const batchTexts = batch.map(entry => entry.text)
-        
+
+        // 获取前置上下文（前 contextSize 条）
+        const preContext: SubtitleEntry[] = []
+        if (batchIndex > 0 && contextSize > 0) {
+          const preStart = Math.max(0, startIndex - contextSize)
+          preContext.push(...entries.slice(preStart, startIndex))
+        }
+
+        // 获取后置上下文（后 contextSize 条）
+        const postContext: SubtitleEntry[] = []
+        if (batchIndex < batches.length - 1 && contextSize > 0) {
+          const postStart = startIndex + batch.length
+          const postEnd = Math.min(entries.length, postStart + contextSize)
+          postContext.push(...entries.slice(postStart, postEnd))
+        }
+
+        // 构建完整的请求（包含上下文）
+        const promptParts: string[] = []
+
+        // 添加前置上下文（标记为 CONTEXT）
+        if (preContext.length > 0) {
+          promptParts.push('// 以下是前置上下文，仅供理解，不需要翻译')
+          preContext.forEach(entry => {
+            promptParts.push(`[${entry.index}] [CONTEXT] ${entry.text}`)
+          })
+          promptParts.push('') // 空行分隔
+        }
+
+        // 添加需要翻译的主要内容
+        promptParts.push('// 以下是需要翻译的字幕')
+        batch.forEach(entry => {
+          promptParts.push(`[${entry.index}] ${entry.text}`)
+        })
+
+        // 添加后置上下文（标记为 CONTEXT）
+        if (postContext.length > 0) {
+          promptParts.push('') // 空行分隔
+          promptParts.push('// 以下是后置上下文，仅供理解，不需要翻译')
+          postContext.forEach(entry => {
+            promptParts.push(`[${entry.index}] [CONTEXT] ${entry.text}`)
+          })
+        }
+
+        const prompt = promptParts.join('\n')
+
+        // 收集所有文本用于术语筛选（包括上下文）
+        const allTexts = [
+          ...preContext.map(e => e.text),
+          ...batch.map(e => e.text),
+          ...postContext.map(e => e.text)
+        ]
+
         // 筛选当前批次相关的术语
-        const relevantTerms = filterRelevantTerms(batchTexts, accumulatedTerms)
-        
-        console.log(`🔍 术语筛选结果:`)
+        const relevantTerms = filterRelevantTerms(allTexts, accumulatedTerms)
+
+        console.log(`🔍 批次信息:`)
+        console.log(`   前置上下文: ${preContext.length} 条`)
+        console.log(`   需要翻译: ${batch.length} 条`)
+        console.log(`   后置上下文: ${postContext.length} 条`)
         console.log(`   累积术语总数: ${Object.keys(accumulatedTerms).length}`)
         console.log(`   当前批次相关术语: ${Object.keys(relevantTerms).length}`)
         console.log(`   相关术语列表:`, JSON.stringify(relevantTerms, null, 2))
-        
+
         // 获取包含术语的系统提示词
         const systemPrompt = getSystemPrompt(relevantTerms)
 
         try {
-          const userMessage = `请翻译以下 ${batch.length} 条电影字幕，注意上下文关联，保留索引标记：\n\n${prompt}`
+          const userMessage = `请翻译以下电影字幕。注意：标记为 [CONTEXT] 的字幕仅供上下文理解，不需要翻译。只翻译没有 [CONTEXT] 标记的 ${batch.length} 条字幕，保留索引标记：\n\n${prompt}`
           console.log(`📤 发送请求到 DeepSeek API...`)
-          console.log(`📨 User 消息:`, userMessage.substring(0, 200))
+          console.log(`📨 User 消息前 500 字符:`, userMessage.substring(0, 500))
           const result = await callDeepSeekAPI([
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMessage }
@@ -386,7 +441,8 @@ ${JSON.stringify(terms, null, 2)}
   async function retranslateMissingSubtitles(
     apiKey: string,
     model: string,
-    batchSize: number = 20
+    batchSize: number = 20,
+    contextSize: number = 3  // 缺失字幕重译使用较小的上下文
   ): Promise<void> {
     const missingEntries = store.retryMissingTranslations()
 
@@ -398,7 +454,7 @@ ${JSON.stringify(terms, null, 2)}
     console.log(`🔄 开始重译 ${missingEntries.length} 条缺失的字幕`)
 
     // 使用批量翻译功能重译缺失的字幕
-    await translateSubtitleBatch(missingEntries, apiKey, model, batchSize)
+    await translateSubtitleBatch(missingEntries, apiKey, model, batchSize, contextSize)
 
     console.log('✅ 缺失字幕重译完成')
   }
